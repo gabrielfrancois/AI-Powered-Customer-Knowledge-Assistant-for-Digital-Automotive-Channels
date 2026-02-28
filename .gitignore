@@ -1,0 +1,12 @@
+# .gitignore
+__pycache__/
+*.pyc
+.env
+.venv/
+uv.lock
+
+# Ignore the model weights
+presentation/models/
+data/vectorstore/
+test_llm.py
+test_embeeding.py

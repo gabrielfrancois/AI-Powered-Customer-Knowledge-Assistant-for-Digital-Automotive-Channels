@@ -74,11 +74,6 @@ def get_bot_response(query: str, top_k: int) -> tuple[str, list[str]]:
     sources = []
     return answer, sources
 
-
-# ──────────────────────────────────────────────
-# Main App
-# ──────────────────────────────────────────────
-
 def main():
     st.set_page_config(
         page_title="Customer Service Chatbot",

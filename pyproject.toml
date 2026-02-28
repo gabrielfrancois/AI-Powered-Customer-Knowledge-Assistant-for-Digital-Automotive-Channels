@@ -1,0 +1,16 @@
+[project]
+name = "bmw"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "huggingface-hub>=1.5.0",
+    "langchain>=1.2.10",
+    "langchain-community>=0.4.1",
+    "langchain-core>=1.2.16",
+    "mlx-lm>=0.30.7",
+    "numpy>=2.4.2",
+    "sentence-transformers>=5.2.3",
+    "streamlit>=1.54.0",
+]
