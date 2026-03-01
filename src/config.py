@@ -8,13 +8,14 @@ EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
 MODEL_DIR = PROJECT_ROOT / "presentation" / "models"
  
 GENERATION_CONFIG = {
-    "max_tokens": 512,
+    "max_tokens": 1024,
     "temp": 0.7,
     "verbose": True
 }
 
 
 VECTOR_DB_PATH = PROJECT_ROOT / "data" / "vectorstore"
+TEMPERATURE = 0.2
 CHUNKING_SIZE = 500
 CHUNKING_OVERLAP = 50
 top_k = 4

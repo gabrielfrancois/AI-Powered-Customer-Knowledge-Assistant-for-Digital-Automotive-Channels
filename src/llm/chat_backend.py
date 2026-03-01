@@ -8,6 +8,7 @@ from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 
 from src import config
+from helper_function.prints import *
 
 class MLXChatModel(LLM):
     """
@@ -34,7 +35,6 @@ class MLXChatModel(LLM):
             self.model_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"🔄 Checking for model: {self.model_id}...")
-
         # Ensure it downloads to our custom path
         model_path = snapshot_download(
             repo_id=self.model_id,
@@ -43,7 +43,7 @@ class MLXChatModel(LLM):
 
         print(f"\n ⚡ Loading model into memory from {model_path}...")
         self.model, self.tokenizer = load(model_path)
-        print("✅ Model loaded successfully.")
+        print(green("Model loaded successfully."))
 
     @property
     def _llm_type(self) -> str:
@@ -59,18 +59,26 @@ class MLXChatModel(LLM):
         """
         The core function that runs the generation.
         """
+        
+        print(yellow(f"\n[DEBUG] FINAL PROMPT SENT TO LLM:\n{'-'*20}\n{prompt}\n{'-'*20}\n"))
+        
         if self.model is None:
             self._load_model()
 
         params = self.gen_config.copy()
         params.update(kwargs)
+        
+        messages = [{"role": "user", "content": prompt}]
+        formatted_prompt = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
 
-        sampler = make_sampler(params.get("temp", 0.7))
+        sampler = make_sampler(params.get("temp", config.TEMPERATURE))
 
         response = generate(
             self.model,
             self.tokenizer,
-            prompt=prompt,
+            prompt=formatted_prompt, # <--- Use the formatted prompt
             max_tokens=params.get("max_tokens", 512),
             sampler=sampler,
             verbose=params.get("verbose", False)

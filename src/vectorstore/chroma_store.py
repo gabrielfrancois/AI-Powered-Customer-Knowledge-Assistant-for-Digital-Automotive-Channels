@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from langchain_chroma import Chroma 
+from langchain_chroma import Chroma  
 
 from src import config
 from src.embeddings.bge_m3 import get_embedding_model

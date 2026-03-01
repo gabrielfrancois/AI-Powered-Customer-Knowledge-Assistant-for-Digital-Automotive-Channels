@@ -21,9 +21,9 @@ class LocalHuggingFaceEmbeddings(Embeddings):
         elif torch.cuda.is_available():
             self.device = "cuda"
         else:
-            self.device = "cpu"
+            self.device = "cpu" 
 
-        print(flash(f"Using device: {self.device}"))
+        print(blue(f"Using device: {self.device}"))
 
         self.model = SentenceTransformer(
             config.EMBEDDING_MODEL_NAME,

@@ -10,3 +10,4 @@ presentation/models/
 data/
 test_llm.py
 test_embeeding.py
+test_chain.py
