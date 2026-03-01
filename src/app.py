@@ -1,112 +1,175 @@
 """
-Streamlit Chat Interface for the RAG Chatbot.
-
-This is a starter template — feel free to modify, extend, or replace it entirely.
 Run with: streamlit run src/app.py
 """
 
+import sys
+from pathlib import Path
+import time
+
+ROOT_DIR = Path(__file__).parent.parent
+sys.path.append(str(ROOT_DIR))
+
 import streamlit as st
 
+from src import config
+from src.rag.chain import get_rag_chain
 
-# ──────────────────────────────────────────────
-# UI Components
-# ──────────────────────────────────────────────
+
+# -----------------------------------------------------------------------------
+# 1. UI CONFIGURATION & SETUP
+# -----------------------------------------------------------------------------
+
+# Build the absolute path safely
+logo_path = ROOT_DIR / "visual" / "bmw-logo.png"
+
+
+def setup_page():
+    """Configures the Streamlit page title, icon, and layout."""
+    st.set_page_config(
+    page_title="BMW AI Assistant",
+    page_icon="🚗",
+    layout="centered"
+)
+    st.title("🚗 BMW AI Assistant")
+    st.markdown("**Your Intelligent BMW Product & Service Assistant**")
 
 def render_sidebar() -> dict:
-    """Render sidebar settings. Returns a dict of user-configured parameters."""
+    """
+    Renders the sidebar and returns user-configured settings.
+    """
     with st.sidebar:
+        if logo_path.exists():
+            st.image(str(logo_path), width=100)
+        else:
+            # Fallback text if image is missing
+            st.header("BMW AI")
         st.header("⚙️ Settings")
-
+        
+        # Retrieval Settings
+        st.subheader("Retrieval Precision")
         top_k = st.slider(
-            "Retrieved chunks (Top-K)",
-            min_value=1,
-            max_value=10,
-            value=3,
-            help="How many document chunks to retrieve per query.",
+            "Context Documents (Top-K)", 
+            min_value=1, 
+            max_value=10, 
+            value=config.top_k,
+            help="Number of documents to retrieve before re-ranking."
         )
-
+        
         st.divider()
-        st.markdown("**How it works**")
-        st.markdown(
-            "1. Your question is embedded\n"
-            "2. Relevant document chunks are retrieved\n"
-            "3. An LLM generates an answer based on the context"
+        
+        # About Section
+        st.info(
+            "**Architecture:**\n"
+            "- **LLM:** Llama-3.2-1B (4-bit)\n"
+            "- **Embedding:** BGE-M3 (MPS/Metal)\n"
+            "- **Reranker:** FlashRank (TinyBERT)\n"
+            "- **Vector DB:** ChromaDB"
         )
+        
+        if st.button("Clear Chat History", type="secondary"):
+            st.session_state.messages = []
+            st.rerun()
 
     return {"top_k": top_k}
 
+# -----------------------------------------------------------------------------
+# 2. CHAT HISTORY MANAGEMENT
+# -----------------------------------------------------------------------------
 
-def render_message(message: dict) -> None:
-    """Render a single chat message with optional source expander."""
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if message.get("sources"):
-            with st.expander("📄 Sources"):
-                for source in message["sources"]:
-                    st.markdown(f"- {source}")
-
-
-def render_chat_history() -> None:
-    """Display all messages stored in session state."""
-    for message in st.session_state.messages:
-        render_message(message)
-
-
-def get_bot_response(query: str, top_k: int) -> tuple[str, list[str]]:
-    """
-    Generate a chatbot response for the given query.
-
-    TODO: Replace this placeholder with your RAG pipeline.
-    Your implementation should:
-      1. Retrieve relevant chunks from the vector store (use top_k)
-      2. Pass the retrieved context + query to the LLM
-      3. Return the answer and a list of source document titles
-
-    Example:
-        from rag_chain import get_rag_chain
-        chain = get_rag_chain(top_k=top_k)
-        result = chain.invoke({"question": query})
-        answer = result["answer"]
-        sources = [doc.metadata["source"] for doc in result["source_documents"]]
-        return answer, sources
-    """
-    answer = "⚠️ RAG pipeline not yet implemented. Connect your chain in `get_bot_response()`!"
-    sources = []
-    return answer, sources
-
-def main():
-    st.set_page_config(
-        page_title="Customer Service Chatbot",
-        page_icon="🚗",
-        layout="centered",
-    )
-
-    st.title("🚗 Customer Service Chatbot")
-    st.caption("Ask questions about vehicles, services, warranty, and more.")
-
-    # Sidebar
-    settings = render_sidebar()
-
-    # Session state
+def initialize_session_state():
+    """Initializes session state variables if they don't exist."""
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+def render_chat_history():
+    """Iterates through session state and renders past messages."""
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            
+            # Render sources if they exist (for assistant messages)
+            if "sources" in message and message["sources"]:
+                with st.expander("📚 Reference Documents Used"):
+                    for src in message["sources"]:
+                        st.markdown(f"- 📄 `{src}`")
+
+# -----------------------------------------------------------------------------
+# 3. CORE LOGIC (RAG PIPELINE)
+# -----------------------------------------------------------------------------
+def process_user_input(prompt: str, settings: dict):
+    """
+    Handles the user input, calls the RAG chain, and updates the UI.
+    """
+    # 1. Display User Message
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # 2. Generate Assistant Response
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        placeholder.markdown("🧠 *Thinking... (Retrieving & Re-ranking)*")
+        
+        start_time = time.time()
+        
+        try:
+            # Initialize the RAG Chain with user settings
+            chain = get_rag_chain(top_k=settings["top_k"])
+            
+            # Execute Chain
+            # Note: We pass the string directly because our chain handles it via RunnablePassthrough
+            response = chain.invoke(prompt)
+            
+            answer = response["answer"]
+            raw_docs = response["docs"]
+            
+            # Extract clean source filenames (deduplicated)
+            # Logic: Get 'source' metadata -> split path -> take filename
+            source_names = list(set(
+                [doc.metadata.get("source", "Unknown").split("/")[-1] for doc in raw_docs]
+            ))
+
+            # Calculation time
+            latency = time.time() - start_time
+            
+            # 3. Render Final Answer
+            placeholder.markdown(answer)
+            
+            # 4. Render Sources
+            if source_names:
+                with st.expander(f"📚 Reference Documents ({len(source_names)})"):
+                    for src in source_names:
+                        st.markdown(f"- 📄 `{src}`")
+            
+            # 5. Save to History
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": answer,
+                "sources": source_names
+            })
+            
+            # Optional: Show latency in sidebar or small caption
+            # st.caption(f"⏱️ Response generated in {latency:.2f}s")
+
+        except Exception as e:
+            placeholder.error(f"❌ Error generating response: {str(e)}")
+            # Print full trace to console for debugging
+            import traceback
+            traceback.print_exc()
+
+# -----------------------------------------------------------------------------
+# 4. MAIN APPLICATION ENTRY POINT
+# -----------------------------------------------------------------------------
+def main():
+    setup_page()
+    initialize_session_state()
+    
+    settings = render_sidebar()
     render_chat_history()
 
-    # Chat input
-    if prompt := st.chat_input("Ask a question..."):
-        # User message
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Bot response
-        answer, sources = get_bot_response(prompt, top_k=settings["top_k"])
-
-        response = {"role": "assistant", "content": answer, "sources": sources}
-        render_message(response)
-        st.session_state.messages.append(response)
-
+    # Chat Input Listener
+    if prompt := st.chat_input("Ask about warranty, service, or vehicle features..."):
+        process_user_input(prompt, settings)
 
 if __name__ == "__main__":
     main()
