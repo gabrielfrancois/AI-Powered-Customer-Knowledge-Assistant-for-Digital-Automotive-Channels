@@ -16,11 +16,14 @@ from src.analytics.tracking import AnalyticsManager
 analytics = AnalyticsManager()
 logo_path = ROOT_DIR / "visual" / "bmw-logo.png"
 
+# -----------------------------------------------------------------------------
+# UI HELPER FUNCTIONS
+# -----------------------------------------------------------------------------
+
 def setup_page():
     st.set_page_config(page_title="BMW AI", page_icon="🚗", layout="centered")
     st.title("🚗 BMW AI Assistant")
     
-    # Initialize Session State
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "feedback_given" not in st.session_state:
@@ -37,8 +40,6 @@ def render_sidebar():
         top_k = st.slider("Context Precision", 1, 10, getattr(config, 'top_k', 4))
         
         st.divider()
-        
-        # Info section
         st.info(
             "**Architecture:**\n"
             "- **LLM:** Llama-3.2-1B (4-bit)\n"
@@ -85,20 +86,45 @@ def render_dashboard():
         else:
             st.success("No negative feedback recorded yet.")
 
+# -----------------------------------------------------------------------------
+# MAIN CHAT LOGIC
+# -----------------------------------------------------------------------------
+
 def process_chat(top_k):
-    # Display History
+    # Render History
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if msg.get("sources"):
                 with st.expander("📚 Sources"):
                     for s in msg["sources"]: st.caption(s)
+            
+            # CHECK: If this is an assistant message, render its feedback buttons immediately
+            if msg["role"] == "assistant":
+                msg_id = msg.get("msg_id")
+                if msg_id:
+                    if msg_id not in st.session_state.feedback_given:
+                        col1, col2, _ = st.columns([1, 1, 8])
+                        with col1:
+                            if st.button("👍", key=f"up_{msg_id}"):
+                                analytics.log_feedback(msg_id, 1, "Like", msg["sources"])
+                                st.session_state.feedback_given.add(msg_id)
+                                st.rerun()
+                        with col2:
+                            if st.button("👎", key=f"down_{msg_id}"):
+                                analytics.log_feedback(msg_id, 0, "Dislike", msg["sources"])
+                                st.session_state.feedback_given.add(msg_id)
+                                st.rerun()
+                    else:
+                        st.caption("✅ Feedback recorded.")
 
-    # Input
+    # Chat Input
     if prompt := st.chat_input("Ask about BMW..."):
+        # User Message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
 
+        # Assistant Message
         with st.chat_message("assistant"):
             placeholder = st.empty()
             placeholder.markdown("🧠 *Thinking...*")
@@ -115,18 +141,23 @@ def process_chat(top_k):
                 # Log
                 msg_id = analytics.log_interaction(prompt, answer, sources, latency)
 
-                # Display
+                # Display Answer
                 placeholder.markdown(answer)
                 if sources:
                     with st.expander("📚 Sources"):
                         for s in sources: st.caption(s)
 
+                # Save to History
                 st.session_state.messages.append({
                     "role": "assistant", "content": answer, "sources": sources, "msg_id": msg_id
                 })
-                st.rerun() # Force rerun to show buttons
+                st.rerun() 
             except Exception as e:
                 placeholder.error(f"Error: {e}")
+
+# -----------------------------------------------------------------------------
+# MAIN
+# -----------------------------------------------------------------------------
 
 def main():
     setup_page()
@@ -136,29 +167,6 @@ def main():
     
     with tab1:
         process_chat(top_k)
-        
-        # Feedback Buttons
-        if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
-            last_msg = st.session_state.messages[-1]
-            msg_id = last_msg.get("msg_id")
-
-            if msg_id:
-                if msg_id not in st.session_state.feedback_given:
-                    st.divider()
-                    st.write("Rate this answer:")
-                    c1, c2 = st.columns([1, 10])
-                    with c1:
-                        if st.button("👍", key=f"up_{msg_id}"):
-                            analytics.log_feedback(msg_id, 1, "Like", last_msg["sources"])
-                            st.session_state.feedback_given.add(msg_id)
-                            st.rerun()
-                    with c2:
-                        if st.button("👎", key=f"down_{msg_id}"):
-                            analytics.log_feedback(msg_id, 0, "Dislike", last_msg["sources"])
-                            st.session_state.feedback_given.add(msg_id)
-                            st.rerun()
-                else:
-                    st.caption("✅ Feedback recorded.")
 
     with tab2:
         render_dashboard()
