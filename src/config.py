@@ -8,9 +8,9 @@ EMBEDDING_MODEL_NAME = "BAAI/bge-m3"
 MODEL_DIR = PROJECT_ROOT / "presentation" / "models"
  
 GENERATION_CONFIG = {
-    "max_tokens": 1024,
-    "temp": 0.7,
-    "verbose": True
+    "max_tokens": 512,
+    "temp": 0.2,
+    "verbose": True # generate the answer
 }
 
 
