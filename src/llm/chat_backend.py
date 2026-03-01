@@ -31,7 +31,7 @@ class MLXChatModel(LLM):
         """
         # Ensure directory exists
         if not self.model_dir.exists():
-            print(f"📂 Creating model directory at: {self.model_dir}")
+            print(green(f"📂 Creating model directory at: {self.model_dir}"))
             self.model_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"🔄 Checking for model: {self.model_id}...")
@@ -43,7 +43,7 @@ class MLXChatModel(LLM):
 
         print(f"\n ⚡ Loading model into memory from {model_path}...")
         self.model, self.tokenizer = load(model_path)
-        print(green("Model loaded successfully."))
+        print(green("Model loaded successfully!"))
 
     @property
     def _llm_type(self) -> str:
@@ -75,10 +75,11 @@ class MLXChatModel(LLM):
 
         sampler = make_sampler(params.get("temp", config.TEMPERATURE))
 
+        # Generate answer
         response = generate(
             self.model,
             self.tokenizer,
-            prompt=formatted_prompt, # <--- Use the formatted prompt
+            prompt=formatted_prompt, # use the formatted prompt
             max_tokens=params.get("max_tokens", 512),
             sampler=sampler,
             verbose=params.get("verbose", False)

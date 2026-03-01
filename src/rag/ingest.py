@@ -10,7 +10,7 @@ from src.vectorstore.chroma_store import get_vectorstore
 from src import config
 from helper_function.prints import *
 
-BATCH_SIZE = 100  # Number of chunks to process at once, useless here, but becomes usefull in case of greater dataset.
+BATCH_SIZE = config.BATCH_SIZE  # Number of chunks to process at once, useless here, but becomes usefull in case of greater dataset.
 
 def load_documents():
     """
@@ -27,7 +27,7 @@ def load_documents():
     loader = DirectoryLoader(
         str(data_path),
         glob="**/*.txt",
-        loader_cls=TextLoader,
+        loader_cls=TextLoader, # Here it is just file .txt, in case of PDf, we would use UnstructuredPDFLoader
         loader_kwargs={"autodetect_encoding": True} # prevents crashes on special characters (common in German/Euro text)
     ) # grab all .txt files
 
@@ -38,7 +38,7 @@ def load_documents():
 def clean_metadata(docs):
     """
     Clean up metadata in order that citations look nice.
-    Changes absolute paths '/Users/gabriel/.../doc.txt' to just 'doc.txt'
+     '/Users/${USER}/.../doc.txt' --> 'doc.txt'
     """
     for doc in docs:
         source_path = doc.metadata.get("source", "")
@@ -106,17 +106,21 @@ def ingest():
     for doc in cleaned_docs:
         doc.page_content = clean_content(doc.page_content)
 
+    # Prepare to split text into a bunch of chunks
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=config.CHUNKING_SIZE,
         chunk_overlap=config.CHUNKING_OVERLAP,
         separators=["\n\n", "\n", " ", ""]
     )
+    
+    # Turns raw text into chunks 
     chunks = text_splitter.split_documents(cleaned_docs)
     total_chunks = len(chunks)
     print(orange(f"Split into {len(chunks)} chunks (Size: {config.CHUNKING_SIZE}, Overlap: {config.CHUNKING_OVERLAP})"))
 
-    # Init vector
+    # Brut force for all text if it's affordable
     hnsw_config = calculate_hnsw_params(total_chunks)
+    # Launch HNSW
     vectorstore = get_vectorstore(clean=True, collection_metadata=hnsw_config)
 
     print("⚡ Indexing in batches of {BATCH_SIZE}...")
@@ -124,7 +128,7 @@ def ingest():
     total_batches = math.ceil(total_chunks / BATCH_SIZE)
 
     for i, batch in enumerate(batch_generator(chunks, BATCH_SIZE)):
-        vectorstore.add_documents(batch)
+        vectorstore.add_documents(batch) # save in data/vectorstore
         print(f"   Batch {i+1}/{total_batches} indexed ({len(batch)} chunks)")
 
     print(green(f"🎉 Success! Database stored at: {config.VECTOR_DB_PATH}"))

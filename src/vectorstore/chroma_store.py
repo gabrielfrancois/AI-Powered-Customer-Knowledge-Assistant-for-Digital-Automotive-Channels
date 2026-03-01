@@ -30,7 +30,7 @@ def get_vectorstore(clean: bool = False, collection_metadata: dict = None):
         persist_directory=db_path,
         embedding_function=embedding_function,
         collection_name="bmw_knowledge_base", 
-        collection_metadata=collection_metadata # HNSW <==> brutforce in case of short dataset
+        collection_metadata=collection_metadata # HNSW with high parammeters <==> brutforce (we do it in case of short dataset)
     )
     
     return vectorstore
