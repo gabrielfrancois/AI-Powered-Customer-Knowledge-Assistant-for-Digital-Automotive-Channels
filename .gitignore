@@ -7,6 +7,6 @@ uv.lock
 
 # Ignore the model weights
 presentation/models/
-data/vectorstore/
+data/
 test_llm.py
 test_embeeding.py

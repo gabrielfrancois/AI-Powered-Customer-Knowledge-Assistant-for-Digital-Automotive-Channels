@@ -1,9 +1,10 @@
 from typing import List
 from langchain_core.embeddings import Embeddings
 from sentence_transformers import SentenceTransformer
-import torch
+import torch  
 
-from src import config
+from src import config 
+from helper_function.prints import *
 
 
 class LocalHuggingFaceEmbeddings(Embeddings):
@@ -22,7 +23,7 @@ class LocalHuggingFaceEmbeddings(Embeddings):
         else:
             self.device = "cpu"
 
-        print(f"Using device: {self.device}")
+        print(flash(f"Using device: {self.device}"))
 
         self.model = SentenceTransformer(
             config.EMBEDDING_MODEL_NAME,
