@@ -1,175 +1,167 @@
-"""
-Run with: streamlit run src/app.py
-"""
-
 import sys
-from pathlib import Path
 import time
+import pandas as pd
+from pathlib import Path
 
+# Path Setup
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.append(str(ROOT_DIR))
 
 import streamlit as st
-
 from src import config
 from src.rag.chain import get_rag_chain
+from src.analytics.tracking import AnalyticsManager
 
-
-# -----------------------------------------------------------------------------
-# 1. UI CONFIGURATION & SETUP
-# -----------------------------------------------------------------------------
-
-# Build the absolute path safely
+# Initialize
+analytics = AnalyticsManager()
 logo_path = ROOT_DIR / "visual" / "bmw-logo.png"
 
-
 def setup_page():
-    """Configures the Streamlit page title, icon, and layout."""
-    st.set_page_config(
-    page_title="BMW AI Assistant",
-    page_icon="🚗",
-    layout="centered"
-)
+    st.set_page_config(page_title="BMW AI", page_icon="🚗", layout="centered")
     st.title("🚗 BMW AI Assistant")
-    st.markdown("**Your Intelligent BMW Product & Service Assistant**")
+    
+    # Initialize Session State
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "feedback_given" not in st.session_state:
+        st.session_state.feedback_given = set()
 
-def render_sidebar() -> dict:
-    """
-    Renders the sidebar and returns user-configured settings.
-    """
+def render_sidebar():
     with st.sidebar:
-        if logo_path.exists():
+        if logo_path.exists(): 
             st.image(str(logo_path), width=100)
         else:
-            # Fallback text if image is missing
             st.header("BMW AI")
+
         st.header("⚙️ Settings")
-        
-        # Retrieval Settings
-        st.subheader("Retrieval Precision")
-        top_k = st.slider(
-            "Context Documents (Top-K)", 
-            min_value=1, 
-            max_value=10, 
-            value=config.top_k,
-            help="Number of documents to retrieve before re-ranking."
-        )
+        top_k = st.slider("Context Precision", 1, 10, getattr(config, 'top_k', 4))
         
         st.divider()
         
-        # About Section
+        # Info section
         st.info(
             "**Architecture:**\n"
             "- **LLM:** Llama-3.2-1B (4-bit)\n"
-            "- **Embedding:** BGE-M3 (MPS/Metal)\n"
-            "- **Reranker:** FlashRank (TinyBERT)\n"
+            "- **Embedding:** BGE-M3 (Metal)\n"
+            "- **Reranker:** FlashRank\n"
             "- **Vector DB:** ChromaDB"
         )
-        
-        if st.button("Clear Chat History", type="secondary"):
+
+        if st.button("Clear Chat"):
             st.session_state.messages = []
+            st.session_state.feedback_given = set()
             st.rerun()
-
-    return {"top_k": top_k}
-
-# -----------------------------------------------------------------------------
-# 2. CHAT HISTORY MANAGEMENT
-# -----------------------------------------------------------------------------
-
-def initialize_session_state():
-    """Initializes session state variables if they don't exist."""
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-def render_chat_history():
-    """Iterates through session state and renders past messages."""
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
             
-            # Render sources if they exist (for assistant messages)
-            if "sources" in message and message["sources"]:
-                with st.expander("📚 Reference Documents Used"):
-                    for src in message["sources"]:
-                        st.markdown(f"- 📄 `{src}`")
+    return top_k
 
-# -----------------------------------------------------------------------------
-# 3. CORE LOGIC (RAG PIPELINE)
-# -----------------------------------------------------------------------------
-def process_user_input(prompt: str, settings: dict):
-    """
-    Handles the user input, calls the RAG chain, and updates the UI.
-    """
-    # 1. Display User Message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+def render_dashboard():
+    st.header("📊 Executive Analytics Dashboard")
+    metrics, cat_counts, bad_sources = analytics.get_dashboard_metrics()
+    
+    if metrics is None:
+        st.info("No data available yet.")
+        return
 
-    # 2. Generate Assistant Response
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        placeholder.markdown("🧠 *Thinking... (Retrieving & Re-ranking)*")
-        
-        start_time = time.time()
-        
-        try:
-            # Initialize the RAG Chain with user settings
-            chain = get_rag_chain(top_k=settings["top_k"])
-            
-            # Execute Chain
-            # Note: We pass the string directly because our chain handles it via RunnablePassthrough
-            response = chain.invoke(prompt)
-            
-            answer = response["answer"]
-            raw_docs = response["docs"]
-            
-            # Extract clean source filenames (deduplicated)
-            # Logic: Get 'source' metadata -> split path -> take filename
-            source_names = list(set(
-                [doc.metadata.get("source", "Unknown").split("/")[-1] for doc in raw_docs]
-            ))
+    # KPIs
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Queries", metrics["total_queries"])
+    c2.metric("Avg Latency", f"{metrics['avg_latency']:.2f} s")
+    c3.metric("No Answer Rate", f"{metrics['no_answer_rate']:.1f}%")
 
-            # Calculation time
-            latency = time.time() - start_time
-            
-            # 3. Render Final Answer
-            placeholder.markdown(answer)
-            
-            # 4. Render Sources
-            if source_names:
-                with st.expander(f"📚 Reference Documents ({len(source_names)})"):
-                    for src in source_names:
-                        st.markdown(f"- 📄 `{src}`")
-            
-            # 5. Save to History
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": answer,
-                "sources": source_names
-            })
-            
-            # Optional: Show latency in sidebar or small caption
-            # st.caption(f"⏱️ Response generated in {latency:.2f}s")
+    # Charts
+    c_left, c_right = st.columns(2)
+    with c_left:
+        st.subheader("📌 User Intents")
+        if not cat_counts.empty:
+            st.bar_chart(cat_counts.set_index("Category"))
+    with c_right:
+        st.subheader("⚠️ Problematic Sources")
+        if not bad_sources.empty:
+            st.dataframe(
+                bad_sources[["Source File", "Rejection Rate", "Negative Feedback"]], 
+                hide_index=True, use_container_width=True
+            )
+            st.caption("Rejection Rate = % of times source was cited in a 'Thumbs Down' answer.")
+        else:
+            st.success("No negative feedback recorded yet.")
 
-        except Exception as e:
-            placeholder.error(f"❌ Error generating response: {str(e)}")
-            # Print full trace to console for debugging
-            import traceback
-            traceback.print_exc()
+def process_chat(top_k):
+    # Display History
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if msg.get("sources"):
+                with st.expander("📚 Sources"):
+                    for s in msg["sources"]: st.caption(s)
 
-# -----------------------------------------------------------------------------
-# 4. MAIN APPLICATION ENTRY POINT
-# -----------------------------------------------------------------------------
+    # Input
+    if prompt := st.chat_input("Ask about BMW..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            placeholder.markdown("🧠 *Thinking...*")
+            start = time.time()
+            try:
+                # Run Chain
+                chain = get_rag_chain(top_k=top_k)
+                res = chain.invoke(prompt)
+                latency = time.time() - start
+                
+                answer = res["answer"]
+                sources = list(set([d.metadata.get("source", "Unk").split("/")[-1] for d in res["docs"]]))
+
+                # Log
+                msg_id = analytics.log_interaction(prompt, answer, sources, latency)
+
+                # Display
+                placeholder.markdown(answer)
+                if sources:
+                    with st.expander("📚 Sources"):
+                        for s in sources: st.caption(s)
+
+                st.session_state.messages.append({
+                    "role": "assistant", "content": answer, "sources": sources, "msg_id": msg_id
+                })
+                st.rerun() # Force rerun to show buttons
+            except Exception as e:
+                placeholder.error(f"Error: {e}")
+
 def main():
     setup_page()
-    initialize_session_state()
+    top_k = render_sidebar()
     
-    settings = render_sidebar()
-    render_chat_history()
+    tab1, tab2 = st.tabs(["💬 Chat", "📈 Analytics"])
+    
+    with tab1:
+        process_chat(top_k)
+        
+        # Feedback Buttons
+        if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
+            last_msg = st.session_state.messages[-1]
+            msg_id = last_msg.get("msg_id")
 
-    # Chat Input Listener
-    if prompt := st.chat_input("Ask about warranty, service, or vehicle features..."):
-        process_user_input(prompt, settings)
+            if msg_id:
+                if msg_id not in st.session_state.feedback_given:
+                    st.divider()
+                    st.write("Rate this answer:")
+                    c1, c2 = st.columns([1, 10])
+                    with c1:
+                        if st.button("👍", key=f"up_{msg_id}"):
+                            analytics.log_feedback(msg_id, 1, "Like", last_msg["sources"])
+                            st.session_state.feedback_given.add(msg_id)
+                            st.rerun()
+                    with c2:
+                        if st.button("👎", key=f"down_{msg_id}"):
+                            analytics.log_feedback(msg_id, 0, "Dislike", last_msg["sources"])
+                            st.session_state.feedback_given.add(msg_id)
+                            st.rerun()
+                else:
+                    st.caption("✅ Feedback recorded.")
+
+    with tab2:
+        render_dashboard()
 
 if __name__ == "__main__":
     main()

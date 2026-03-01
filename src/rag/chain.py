@@ -90,7 +90,7 @@ def get_rag_chain(top_k: int = config.top_k):
     1. **Concept Matching:** The user may use different terminology than the documents. actively look for synonyms or related concepts (e.g., if asked about "high voltage", check sections on "electric" or "battery").
     2. **Precision:** If the documents provide specific figures (years, km, kW), cite them exactly.
     3. **Focus:** Answer only what is asked. Do not include irrelevant details from other sections (like extended warranties) unless requested.
-    4. **Uncertainty:** If the answer is strictly not found in the documents, say "I do not have enough information to answer this based on the provided context."
+    4. **Uncertainty:** If the answer is **strictly not found in the documents, say "I don't know"**.
     
     USER QUESTION: 
     {question}
