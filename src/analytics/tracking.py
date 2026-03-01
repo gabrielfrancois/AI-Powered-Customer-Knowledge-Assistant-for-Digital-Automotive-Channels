@@ -122,30 +122,38 @@ class AnalyticsManager:
         if self.feedback_file.exists():
             df_feed = pd.read_csv(self.feedback_file)
             
-        all_sources = []
-        for s in df_int["sources"].dropna():
-            all_sources.extend(s.split(" | "))
-        source_usage = pd.Series(all_sources).value_counts()
-
-        # Count times each source got a Thumbs Down
+        # Count Negative Feedback (Thumbs Down = 0)
         bad_sources = []
         if not df_feed.empty:
             thumbs_down = df_feed[df_feed["thumb_up_down"] == 0]
             for s in thumbs_down["related_sources"].dropna():
                 bad_sources.extend(s.split(" | "))
-        source_complaints = pd.Series(bad_sources).value_counts()
+        bad_counts = pd.Series(bad_sources).value_counts()
 
-        # Calculate Rate (Complaints / Usage)
+        # Count positive feedback 
+        good_sources = []
+        if not df_feed.empty:
+            thumbs_up = df_feed[df_feed["thumb_up_down"] == 1]
+            for s in thumbs_up["related_sources"].dropna():
+                good_sources.extend(s.split(" | "))
+        good_counts = pd.Series(good_sources).value_counts()
+
+        # Combine into stats
         source_stats = pd.DataFrame({
-            "Total Citations": source_usage,
-            "Negative Feedback": source_complaints
-        }).fillna(0)
+            "Thumbs Up": good_counts,
+            "Thumbs Down": bad_counts
+        }).fillna(0) # Fill NaN with 0 if a source has only Ups or only Downs
         
-        # Calculate Rejection %
-        source_stats["Rejection Rate"] = (source_stats["Negative Feedback"] / source_stats["Total Citations"]) * 100
+        # calculate approval rate
+        source_stats["Total Feedback"] = source_stats["Thumbs Up"] + source_stats["Thumbs Down"]
+        source_stats["Approval Rate"] = (source_stats["Thumbs Up"] / source_stats["Total Feedback"]) * 100
         
-        # Filter to show only sources that actually have complaints
-        problematic_sources = source_stats[source_stats["Negative Feedback"] > 0].sort_values("Rejection Rate", ascending=False).reset_index()
+        # Sort: Ascending (0% approval is worst) -> Descending Total Feedback (prioritize meaningful data)
+        problematic_sources = source_stats.sort_values(
+            ["Approval Rate", "Total Feedback"], 
+            ascending=[True, False]
+        ).reset_index()
+        
         problematic_sources = problematic_sources.rename(columns={"index": "Source File"})
 
         metrics = {

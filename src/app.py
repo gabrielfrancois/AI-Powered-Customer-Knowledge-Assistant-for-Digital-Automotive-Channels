@@ -75,16 +75,19 @@ def render_dashboard():
         st.subheader("📌 User Intents")
         if not cat_counts.empty:
             st.bar_chart(cat_counts.set_index("Category"))
+            
     with c_right:
-        st.subheader("⚠️ Problematic Sources")
+        st.subheader("⭐ Source Quality")
         if not bad_sources.empty:
+            # Display the new metrics
             st.dataframe(
-                bad_sources[["Source File", "Rejection Rate", "Negative Feedback"]], 
-                hide_index=True, use_container_width=True
+                bad_sources[["Source File", "Approval Rate", "Total Feedback"]], 
+                hide_index=True, 
+                use_container_width=True
             )
-            st.caption("Rejection Rate = % of times source was cited in a 'Thumbs Down' answer.")
+            st.caption("Approval Score (0% = All Thumbs Down, 100% = All Thumbs Up). Sorted by worst performing.")
         else:
-            st.success("No negative feedback recorded yet.")
+            st.success("No user feedback recorded yet.")
 
 # -----------------------------------------------------------------------------
 # MAIN CHAT LOGIC
