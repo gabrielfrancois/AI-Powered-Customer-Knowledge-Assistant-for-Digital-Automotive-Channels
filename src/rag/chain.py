@@ -1,6 +1,3 @@
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
 
 from src.vectorstore.chroma_store import get_vectorstore
@@ -69,6 +66,9 @@ def get_rag_chain(top_k: int = config.top_k):
     """
     
     from src.llm.chat_backend import MLXChatModel
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.runnables import RunnablePassthrough, RunnableParallel
     
     vectorstore = get_vectorstore(clean=False)
     

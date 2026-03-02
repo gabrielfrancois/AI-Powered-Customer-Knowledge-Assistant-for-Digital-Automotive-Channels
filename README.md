@@ -105,7 +105,7 @@ Why should a company deploy this specific architecture instead of using a generi
 * **Zero Data Leakage:** No data leaves the device. Customer PII and proprietary technical manuals never touch OpenAI or Google servers. This is critical for **GDPR compliance** and protecting trade secrets.
 
 ### 2. Strategic Data Mining (Free Market Research)
-This system doesn't just answer questions; it collects a **goldmine of relevant data** that usually requires expensive surveys to acquire.
+This system doesn't just answer questions, it collects a **goldmine of relevant data** that usually requires expensive surveys to acquire.
 * **Identify Pain Points:** You can see exactly what users are struggling with most frequently (e.g., *"Why does everyone ask about Bluetooth pairing on the X5?"*).
 * **Detect Outdated/Irrelevant Docs:** By tracking the "No Answer" rate and Thumbs Down feedback, the system flags documents that are **irrelevant, outdated, or confusing**.
 * **Cost Savings:** Instead of paying for external audits or customer surveys, you get direct, organic feedback from your actual users every day.

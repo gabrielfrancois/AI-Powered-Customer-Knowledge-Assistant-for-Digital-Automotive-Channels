@@ -31,15 +31,14 @@ class MLXChatModel(LLM):
         """
         # Ensure directory exists
         if not self.model_dir.exists():
-            print(green(f"📂 Creating model directory at: {self.model_dir}"))
+            print(green(f"Creating model directory at: {self.model_dir}"))
             self.model_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"🔄 Checking for model: {self.model_id}...")
-        # Ensure it downloads to our custom path
-        model_path = snapshot_download(
+        model_path = snapshot_download(# Ensure it downloads to our custom path
             repo_id=self.model_id,
             local_dir=self.model_dir,
-        )
+        ) 
 
         print(f"\n ⚡ Loading model into memory from {model_path}...")
         self.model, self.tokenizer = load(model_path)

@@ -45,7 +45,7 @@ class AnalyticsManager:
                 existing_cols = list(df.columns)
                 
                 if existing_cols != expected_columns:
-                    print(red(f"⚠️  Schema mismatch in {filepath.name}."))
+                    print(red(f"Schema mismatch in {filepath.name}."))
                     print(f"   Expected: {expected_columns}")
                     print(f"   Found:    {existing_cols}")
                     
@@ -60,7 +60,7 @@ class AnalyticsManager:
                         csv.writer(f).writerow(expected_columns)
                     print(green(f"Created fresh {filepath.name} with correct schema."))
                 else:
-                    print(green(f"All the given database matches, continue filling {filepath}"))
+                    print(green(f"All the given database matches, continue filling {filepath}..."))
             
             except Exception as e: # If file is corrupted, recreate it
                 print(red(f"Error reading {filepath.name}: {e}. Recreating file."))
@@ -181,6 +181,7 @@ class AnalyticsManager:
             
         source_counts = pd.Series(all_cited).value_counts().reset_index()
         source_counts.columns = ["Source", "Usage"]
+        
         # Calculate % of total citations
         total_citations = source_counts["Usage"].sum()
         source_counts["Share"] = (source_counts["Usage"] / total_citations) * 100
@@ -195,20 +196,20 @@ class AnalyticsManager:
         else:
             no_answer_rate = 0
 
-        # Get Performance by Category
+        # Get performance by category
         cat_counts = df_int["category"].value_counts().reset_index()
         cat_counts.columns = ["Category", "Count"]
 
-        # Problematic Sources (from Feedback file, thumbs down)
+        # Problematic sources (from feedback file, thumbs down)
         df_feed = pd.DataFrame()
         if self.feedback_file.exists():
             df_feed = pd.read_csv(self.feedback_file)
             
-        # Count Negative Feedback (Thumbs Down = 0)
+        # Count negative feedback (thumbs down = 0)
         bad_sources = []
         if not df_feed.empty:
             thumbs_down = df_feed[df_feed["thumb_up_down"] == 0]
-            for s in thumbs_down["related_sources"].dropna():
+            for s in thumbs_down["related_sources"].dropna(): # avoid undefined nan
                 if isinstance(s, str) and s.strip():
                     bad_sources.extend(s.split(" | "))
         bad_counts = pd.Series(bad_sources).value_counts()
@@ -225,13 +226,13 @@ class AnalyticsManager:
         source_stats = pd.DataFrame({
             "Thumbs Up": good_counts,
             "Thumbs Down": bad_counts
-        }).fillna(0) # Fill NaN with 0 if a source has only Ups or only Downs
+        }).fillna(0) # Fill NaN with 0 if a source has only ups or only downs
         
         # calculate approval rate
         source_stats["Total Feedback"] = source_stats["Thumbs Up"] + source_stats["Thumbs Down"]
         source_stats["Approval Rate"] = (source_stats["Thumbs Up"] / source_stats["Total Feedback"]) * 100
         
-        # Sort: Ascending (0% approval is worst) -> Descending Total Feedback (prioritize meaningful data)
+        # Ascending (0% approval is worst) 
         problematic_sources = source_stats.sort_values(
             ["Approval Rate", "Total Feedback"], 
             ascending=[True, False]
