@@ -25,11 +25,19 @@ class AnalyticsManager:
 
         if not self.interactions_file.exists():
             with open(self.interactions_file, "w", newline="", encoding="utf-8") as f:
-                csv.writer(f).writerow(["message_id", "timestamp", "user_query", "answer", "sources", "latency (seconds)y", "success_flag", "category"])
-
+                csv.writer(f).writerow(["message_id", "session_id", "timestamp", "user_query", "answer", "sources", "latency", "success_flag", "category","input_tokens", "output_tokens"])
+            
         if not self.feedback_file.exists():
             with open(self.feedback_file, "w", newline="", encoding="utf-8") as f:
                 csv.writer(f).writerow(["feedback_id", "timestamp", "message_id", "thumb_up_down", "comment", "related_sources"])
+    
+    def _estimate_tokens(self, text: str) -> int:
+        """
+        Estimates tokens based on char count (Speed optimization).
+        Rule of thumb: 1 token ~= 4 chars in English.
+        """
+        if not text: return 0
+        return len(text) // 4
 
     def _categorize_intent(self, query: str) -> str:
         """
@@ -48,7 +56,7 @@ class AnalyticsManager:
         else:
             return "General / Unclassified"
 
-    def log_interaction(self, query: str, answer: str, sources: list, latency: float) -> str:
+    def log_interaction(self, session_id: str, query: str, answer: str, sources: list, context_text: str, latency: float) -> str:
         """
         Logs a standard Q&A interaction.
         Returns the message_id to link with future feedback.
@@ -62,14 +70,26 @@ class AnalyticsManager:
         # Success Flag: Did the model say "I don't know"?
         success_flag = "FALSE" if "i don't know" in answer.lower() else "TRUE"
         
+        input_tokens = self._estimate_tokens(query) + self._estimate_tokens(context_text)
+        output_tokens = self._estimate_tokens(answer)
+        
         category = self._categorize_intent(query)
         sources_str = " | ".join(sources) # Flatten list for CSV
 
         with open(self.interactions_file, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
-                message_id, timestamp, query, answer, 
-                sources_str, f"{latency:.4f}", success_flag, category
+                message_id, 
+                session_id,  
+                timestamp, 
+                query, 
+                answer, 
+                sources_str, 
+                f"{latency:.4f}", 
+                success_flag, 
+                category, 
+                input_tokens, 
+                output_tokens
             ])
             
         return message_id
@@ -99,9 +119,32 @@ class AnalyticsManager:
         Generates DataFrames and Metrics for the Streamlit Dashboard.
         """
         if not self.interactions_file.exists():
-            return None, None, None
+            return None, None, None, None, None
 
         df_int = pd.read_csv(self.interactions_file)
+        
+        # COST SIMULATION (The Business Metric) (In/1M * Price) + (Out/1M * Price)
+        total_in = df_int["input_tokens"].sum()
+        total_out = df_int["output_tokens"].sum()
+        est_cost = (
+            (total_in / 1_000_000 * config.COST_PER_1M_INPUT_TOKENS) + 
+            (total_out / 1_000_000 * config.COST_PER_1M_OUTPUT_TOKENS)
+        )
+        
+        # Group by Session ID and count messages
+        session_depth = df_int.groupby("session_id").size().mean()
+        
+        # SOURCE DIVERSITY
+        all_cited = []
+        for s in df_int["sources"].dropna():
+            if isinstance(s, str) and s.strip():
+                all_cited.extend(s.split(" | "))
+            
+        source_counts = pd.Series(all_cited).value_counts().reset_index()
+        source_counts.columns = ["Source", "Usage"]
+        # Calculate % of total citations
+        total_citations = source_counts["Usage"].sum()
+        source_counts["Share"] = (source_counts["Usage"] / total_citations) * 100
         
         # No Answer Rate
         total = len(df_int)
@@ -127,7 +170,8 @@ class AnalyticsManager:
         if not df_feed.empty:
             thumbs_down = df_feed[df_feed["thumb_up_down"] == 0]
             for s in thumbs_down["related_sources"].dropna():
-                bad_sources.extend(s.split(" | "))
+                if isinstance(s, str) and s.strip():
+                    bad_sources.extend(s.split(" | "))
         bad_counts = pd.Series(bad_sources).value_counts()
 
         # Count positive feedback 
@@ -159,7 +203,10 @@ class AnalyticsManager:
         metrics = {
             "total_queries": total,
             "avg_latency": df_int["latency"].mean(),
-            "no_answer_rate": no_answer_rate
+            "no_answer_rate": no_answer_rate,
+            "est_cost": est_cost,
+            "session_depth": session_depth
         }
+        
 
-        return metrics, cat_counts, problematic_sources
+        return metrics, cat_counts, source_counts, problematic_sources

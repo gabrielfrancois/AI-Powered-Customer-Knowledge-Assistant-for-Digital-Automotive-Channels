@@ -2,11 +2,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-from flashrank import Ranker, RerankRequest # To allow Re-Ranking strategy 
 
-from src.llm.chat_backend import MLXChatModel
 from src.vectorstore.chroma_store import get_vectorstore
 from src import config
+from helper_function.prints import *
+
+def debug_print(msg):
+    print(f"[CHAIN DEBUG] {msg}")
 
 def rerank_docs(docs, query):
     """
@@ -29,6 +31,8 @@ def rerank_docs(docs, query):
 
             Returns an empty list if `docs` is empty.
     """
+    from flashrank import Ranker, RerankRequest # To allow Re-Ranking strategy 
+    
     if not docs:
         return []
     
@@ -43,6 +47,8 @@ def rerank_docs(docs, query):
     
     rerank_request = RerankRequest(query=query, passages=passages)
     results = ranker.rerank(rerank_request)
+    
+    # debug_print(f"Reranking complete. Returned {len(results)} docs.")
     
     final_docs = []
     for res in results[:config.top_k]: # Pick only the best ones (the top_k)
@@ -63,6 +69,9 @@ def get_rag_chain(top_k: int = config.top_k):
     """
     Builds the RAG chain: Retriever -> Prompt -> LLM
     """
+    
+    from src.llm.chat_backend import MLXChatModel
+    
     vectorstore = get_vectorstore(clean=False)
     
     # Search relevant information with HNSW (already built by src/rag/ingest.py)
@@ -76,6 +85,7 @@ def get_rag_chain(top_k: int = config.top_k):
     def smart_retrieval(query:str):
         initial_docs = base_retriever.invoke(query) # first search (classical HNSW)
         ranked_docs = rerank_docs(initial_docs, query) # Re-ranking
+        print(orange(f"Initial retrieval found {len(ranked_docs)} docs."))
         return ranked_docs
     
     # System prompt (+user_prompt) with chain of thought
@@ -109,7 +119,7 @@ def get_rag_chain(top_k: int = config.top_k):
         .assign(answer= prompt | llm | StrOutputParser())
         .pick(["answer", "docs"]) # Return only answer and sources
     )
-    
+
     return chain
 
 # Helper for the UI to see sources

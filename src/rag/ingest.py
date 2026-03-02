@@ -131,7 +131,7 @@ def ingest():
         vectorstore.add_documents(batch) # save in data/vectorstore
         print(f"   Batch {i+1}/{total_batches} indexed ({len(batch)} chunks)")
 
-    print(green(f"🎉 Success! Database stored at: {config.VECTOR_DB_PATH}"))
+    print(green(f"Success! Database stored at: {config.VECTOR_DB_PATH}"))
 
 if __name__ == "__main__":
     ingest()
