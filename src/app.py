@@ -126,7 +126,7 @@ def render_dashboard():
                     "Usage": "Citation Count"
                 },
                 hide_index=True,
-                use_container_width=True
+                width='stretch'
             )
             # st.bar_chart(source_diversity.set_index("Source")["Share"])
             # st.caption("Which documents are used most often?")
@@ -143,7 +143,7 @@ def render_dashboard():
                 st.dataframe(
                     issues[["Source File", "Thumbs Down", "Approval Rate"]],
                     hide_index=True,
-                    use_container_width=True
+                    width='stretch'
                 )
                 st.caption("Sources receiving negative feedback.")
             else:
