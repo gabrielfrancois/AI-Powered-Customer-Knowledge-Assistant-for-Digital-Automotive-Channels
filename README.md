@@ -93,7 +93,8 @@ Query expansion (generating synonyms via LLM before searching) typically improve
 While BM25 is excellent for exact keyword matching (like error codes), it requires maintaining a separate sparse index. Given the high semantic density of the technical manuals, the **BGE-M3** embedding model combined with **FlashRank** provided sufficient precision without the added architectural complexity of a hybrid system.
 
 ### Future Improvements (Cross-Platform)
-Currently, `src.llm.chat_backend` is hardcoded for Apple `mlx`. To deploy this on **Linux/Windows** (NVIDIA GPUs), one would simply swap the MLX backend for **Ollama** or **vLLM**. This is a ~5 line code change to make the system universally deployable.
+Currently, `src.llm.chat_backend` defaults to Apple `mlx` for maximum performance on Mac. To deploy this on **Linux or Windows** (NVIDIA GPUs):
+* **The Fix:** Simply open `src/llm/chat_backend.py`, comment out the **MLX** class, and uncomment the **Ollama** class provided in the file. This instantly switches the inference engine to a universally compatible backend.
 
 ---
 
