@@ -23,7 +23,7 @@ logo_path = ROOT_DIR / "visual" / "bmw-logo.png"
 # -----------------------------------------------------------------------------
 # 1. CACHING ENGINE
 # -----------------------------------------------------------------------------
-@st.cache_resource(show_spinner="🧠 Starting up AI Engine (this takes ~10s)...")
+@st.cache_resource(show_spinner="🧠 Starting up AI Engine...")
 def load_cached_chain(top_k_value):
     """
     Loads the AI Model and Database into memory ONCE.
@@ -91,7 +91,7 @@ def render_dashboard():
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Queries", metrics["total_queries"])
     c2.metric("Avg Latency", f"{metrics['avg_latency']:.2f}s") 
-    c3.metric("Est. Cost (GPT-4o)", f"${metrics['est_cost']:.4f}")
+    c3.metric("Est. Cost (base: GPT-4o)", f"${metrics['est_cost']:.4f}")
     c4.metric("Avg Session Depth", f"{metrics['session_depth']:.1f} msgs")
 
     st.divider()
@@ -119,7 +119,7 @@ def render_dashboard():
                     "Share": st.column_config.ProgressColumn(
                         "Usage %",
                         help="Percentage of total citations coming from this source",
-                        format="%.1f%%", # Displays 15.2%
+                        format="%.1f%%", 
                         min_value=0,
                         max_value=100,
                     ),
@@ -179,7 +179,7 @@ def process_chat(top_k):
                             st.session_state.feedback_given.add(msg_id)
                             st.rerun()
                 else:
-                    st.caption("✅ Feedback recorded.")
+                    st.caption("✅ Thank you for your feedback!")
 
     # Chat Input
     if prompt := st.chat_input("Ask about BMW..."):
