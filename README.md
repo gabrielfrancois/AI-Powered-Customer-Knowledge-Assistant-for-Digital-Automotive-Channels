@@ -1,115 +1,118 @@
-# Case Study: AI Engineer Intern – Customer Journey Analytics & Data Science
+# BMW AI Assistant 🚗
+
+A high-performance, privacy-focused RAG (Retrieval-Augmented Generation) solution designed to assist BMW customer support and sales teams. This application runs entirely locally on **Apple Silicon M-series** chips, leveraging **MLX** for optimized inference and **FlashRank** for precision retrieval.
 
 ---
 
-## Overview
+## 🚀 How to Run (Apple Silicon Only)
 
-| Topic | Details |
-|---|---|
-| **Position** | Intern AI Engineer – Customer Journey Analytics & Data Science |
-| **Deliverables** | Part A: GitHub Repository (Code) · Part B: Presentation (max. 20 minutes) |
-| **Language** | English |
-| **Start Date** | Friday, 27.02.2026 |
-| **Deadline** | Tuesday, 03.03.2026, 23:59 — all commits pushed to a **public** GitHub repository |
+This project is strictly optimized for **macOS (M-series chips)** using the `uv` package manager for blistering fast environment setup.
 
----
+### Prerequisites
+* **Hardware:** Mac with Apple Silicon (M1/M2/M3/M4).
+* **Software:** Python 3.10+ installed.
 
-## Context & Scenario
+### Quick Start
+1.  **Install uv** (if not installed):
+    ```bash
+    brew install uv
+    ```
 
-You are joining the **Customer Journey Analytics & Data Science** team at a large automotive company. The team is responsible for data-driven analysis and optimization of digital customer channels – including websites, vehicle configurators, and service portals.
+2.  **Run the Application:**
+    Navigate to the project root and run:
+    ```bash
+    uv run main.py
+    ```
+    *The launcher will automatically handle dependency installation, check the knowledge base status, and launch the dashboard at `http://localhost:8501`.*
 
-Every day, the company receives hundreds of customer inquiries. Many relate to recurring topics: vehicle features, service schedules, warranty terms, or ordering processes. This information already exists in internal knowledge bases but is not always easy to find.
+### Advanced Commands
+* **Force Re-ingestion:** If you have added new text files to `data/knowledge_base`, force a database rebuild:
+    ```bash
+    uv run main.py --restart-ingestion
+    ```
 
-**Your task:** Build a prototype of a **local AI-powered chatbot** that answers customer questions based on a provided knowledge base. The chatbot should use **Retrieval-Augmented Generation (RAG)** to find relevant documents and generate natural language answers.
+### ✨ One-Click Launch (The "Magic" Way)
+For a seamless experience, use the included launcher script.
 
-> **Important:** The focus is on **technical implementation, architecture, and your decision-making process**, not on answer quality. Since the prototype runs locally, we understand there are CPU/GPU constraints. Lightweight models are perfectly fine. We want to see that you understand the concepts and can explain **why** you chose what you chose.
-
----
-
-## Part A: Technical Implementation
-
-### A1 – Setup & Knowledge Base
-
-1. **Set up a local LLM** using [Ollama](https://ollama.ai):
-   - A **Chat model** — a lightweight model works
-   - An **Embedding model**
-2. Use the provided documents in `data/knowledge_base/`
-3. Implement a **Document Ingestion Pipeline**:
-   - Load and process documents
-   - Generate embeddings using your chosen Ollama embedding model
-   - Store embeddings in a **Vector Store** — we recommend [ChromaDB](https://docs.trychroma.com/) for simplicity, but you may use alternatives
-
-### A2 – Implement RAG Pipeline
-
-Build the core chatbot logic:
-
-1. **Retrieval:** For a user query, retrieve the most relevant chunks via similarity search
-2. **Augmentation:** Inject the retrieved context into a prompt
-3. **Generation:** The chat model generates an answer based on the context
-
-**Requirements:**
-- Number of retrieved chunks should be configurable (Top-K)
-- System prompt should instruct the model to answer based on provided context
-- Sources (document titles) should be referenced in the answer
-
-**Framework:** Use **LangChain / LangGraph** as your framework.
-
-
-### A3 – Chat Interface
-
-Build a simple chat interface (e.g. using **Streamlit**):
-
-- Input field for queries
-- Display of chatbot response
-- Display of source documents used
-- Chat history within a session
-
-### A4 – Documentation
-
-Make sure to properly document your code.
+1.  **Make the script executable** (run this once):
+    ```bash
+    chmod +x BMW_get_started.command
+    ```
+2.  **Launch:**
+    Simply **double-click** the `BMW_get_started.command` file in Finder. It will open a terminal, set up the environment, and launch the dashboard automatically.
 
 ---
 
-## Part B: Presentation
+## ⚙️ Architecture & Pipeline
 
-Create a **presentation (max. 20 minutes)** for a **mixed audience** — both business stakeholders and technical team members should be able to follow along.
+This system uses a **Level 2 RAG Architecture** designed for high precision and low latency on edge devices.
 
-The goal is to show that you understand not just **how** to build this, but **why** it matters and where it could go from here.
+### 1. Ingestion Layer (Adaptive HNSW)
+* **Loader:** `TextLoader` is used to ingest raw technical manuals (.txt).
+* **Chunking:** `RecursiveCharacterTextSplitter` ensures semantic integrity of technical specs.
+* **Adaptive Indexing:** The system automatically configures the **HNSW (Hierarchical Navigable Small World)** parameters based on dataset size:
+    * **Small Datasets (<1k chunks):** Uses high-fidelity settings (`M=64`, `ef=400`) to simulate Brute Force accuracy.
+    * **Large Datasets:** Switches to balanced settings (`M=32`, `ef=200`) to maintain retrieval speed without sacrificing recall.
 
-### What we'd like to see:
+### 2. Retrieval Layer (The "Brain")
+* **Vector Database:** **ChromaDB** stores embeddings locally for sub-millisecond similarity search.
+* **Re-Ranking:** **FlashRank (TinyBERT)** acts as a critical second-stage filter.
+    * **The "Screw-up" Scenario:** If a user asks about *"Charging faults"*, a standard vector search might blindly return documents about *Turbocharging* (engine air intake) because the word "charging" matches mathematically. The LLM would then hallucinate an answer about engine repair for an electric vehicle problem.
+    * **The Fix:** FlashRank analyzes the context, realizes the intent is "Electrical/Battery", and forces the Turbocharger documents to the bottom, ensuring the LLM only sees relevant data.
 
-- **Business perspective:** What problem does an AI chatbot solve? Why is this relevant for an automotive company? What value does it create?
-- **Solution & Architecture:** High-level overview of your RAG architecture. Why RAG (vs. other approaches)? Explain your key technical decisions and trade-offs.
-- **Demo & Results:** Show your prototype in action (screenshots or preferably **live demo**). What works well, what are the limitations?
-- **Roadmap:** Where could this go next? How would you scale this to production? What would change (models, infrastructure, integrations)? What further use cases do you see?
-- **Summary & Q&A**
+### Why FlashRank (Cross-Encoder)?
+Standard Vector Search (Bi-Encoder) calculates the "meaning" of the user query and the document **independently**. It compresses a whole paragraph into a single point in space, often losing fine details (e.g., confusing "battery charge" with "turbocharger").
 
-### Evaluation Criteria
+**FlashRank (Cross-Encoder)** acts as a second-stage "reader."
+* **The Funnel Strategy:** We use Vector Search to cast a wide net (Top 15 docs), then use FlashRank to deeply analyze the specific relationship between the User Question and those 15 candidates.
+* **The Mechanism:** Unlike vector search, FlashRank inputs the Question and Document **together** into a neural network, allowing the model to see how words in the query directly interact with words in the document. This provides "human-level" relevance scoring for the final context window.
 
-| Criterion | What we look for |
-|---|---|
-| **Reasoning & Decision-Making** | Clear rationale for technical choices (model, chunk size, retrieval strategy, etc.). We want to understand *why*, not just *what*. |
-| **Business Perspective** | Ability to frame the technical solution in business terms — impact on customer experience, operational efficiency, and strategic value. |
-| **Technical Understanding** | Solid grasp of RAG concepts, LLM fundamentals, and the end-to-end pipeline. |
-| **Communication** | Presenting to a mixed audience — making it accessible for business stakeholders while staying precise for engineers. |
+### 3. Generation Layer
+* **LLM:** **Llama-3.2-1B-Instruct** (4-bit quantized).
+* **Inference Engine:** **MLX** (Apple's Machine Learning framework) is used instead of PyTorch for unified memory access, providing ~3x faster generation on Mac devices.
+
+### 4. Analytics & Feedback Loop
+* **Tracking:** Every interaction logs latency, token usage, and user feedback.
+* **Visualization:** A real-time Executive Dashboard monitors "Knowledge Health" (which documents are actually being used) and "Session Depth".
 
 ---
 
-## How to Submit
+## ⚖️ Design Decisions & Trade-offs
 
-1. Click **"Use this template"** → **"Create a new repository"** on this GitHub page
-2. Create your own **public** repository from this template
-3. Work in your own repo — commit and push your code as you go (Make sure to also push the ppt!)
-4. When you're done, share the **link to your repository** with us
-5. **All commits must be pushed before the deadline** — late submissions will not be considered
+We deliberately prioritized **speed** and **user experience** over complex retrieval pipelines for this iteration.
+
+### Why no Query Decomposition?
+Complex user questions often contain multiple intents (e.g., *"How do I check tire pressure and what is the warranty on the battery?"*).
+* **The Ideal Solution:** Use an LLM agent to split this into two separate queries.
+* **The Constraint:** Running multiple serial LLM inference calls on a base model **8GB computer** would cause unacceptable latency (10s+ wait times). We deliberately avoided curbing the pipeline speed, prioritizing a snappy, single-shot response over multi-intent handling for this edge prototype.
+
+### Why no Query Expansion?
+Query expansion (generating synonyms via LLM before searching) typically improves recall but **triples the latency**, as it requires multiple LLM calls per user query. To maintain a "real-time" chat feel (sub-second latency), we relied on **Dense Retrieval + Reranking** instead.
+
+### Why no Hybrid Search (BM25)?
+While BM25 is excellent for exact keyword matching (like error codes), it requires maintaining a separate sparse index. Given the high semantic density of the technical manuals, the **BGE-M3** embedding model combined with **FlashRank** provided sufficient precision without the added architectural complexity of a hybrid system.
+
+### Future Improvements (Cross-Platform)
+Currently, `src.llm.chat_backend` is hardcoded for Apple `mlx`. To deploy this on **Linux/Windows** (NVIDIA GPUs), one would simply swap the MLX backend for **Ollama** or **vLLM**. This is a ~5 line code change to make the system universally deployable.
 
 ---
 
-## Tips
+## 💼 Business Value & Why Local?
 
-- **Prioritize a working end-to-end pipeline** over perfection in any single component.
-- **Use small models** (1B–4B params). Answer quality is secondary. We evaluate your implementation and understanding.
-- **Explain your decisions** — we want to understand your thought process.
-- A basic **Streamlit app template** is provided in `src/app.py` — you can use it as a starting point or build your own from scratch.
+Why should a company deploy this specific architecture instead of using a generic Cloud LLM wrapper?
 
-**Good luck!**
+### 1. Data Privacy & Security (Local Execution)
+* **Zero Data Leakage:** No data leaves the device. Customer PII and proprietary technical manuals never touch OpenAI or Google servers. This is critical for **GDPR compliance** and protecting trade secrets.
+
+### 2. Strategic Data Mining (Free Market Research)
+This system doesn't just answer questions; it collects a **goldmine of relevant data** that usually requires expensive surveys to acquire.
+* **Identify Pain Points:** You can see exactly what users are struggling with most frequently (e.g., *"Why does everyone ask about Bluetooth pairing on the X5?"*).
+* **Detect Outdated/Irrelevant Docs:** By tracking the "No Answer" rate and Thumbs Down feedback, the system flags documents that are **irrelevant, outdated, or confusing**.
+* **Cost Savings:** Instead of paying for external audits or customer surveys, you get direct, organic feedback from your actual users every day.
+
+### 3. Cost Control
+* **Zero API Costs:** Running Llama-3 locally costs **$0.00** in token fees.
+* **Scalability:** Deploying this on 100 customer support laptops requires no cloud infrastructure scaling, as the compute is distributed on the edge devices.
+
+### 4. Uncluttering Support Centers
+* By answering Tier 1 questions ("What is the tire pressure for X?" or "How to pair Bluetooth?") instantly and accurately, human agents are freed to handle complex, high-value relationship tasks. This reduces ticket volume and increases Customer Satisfaction (CSAT).

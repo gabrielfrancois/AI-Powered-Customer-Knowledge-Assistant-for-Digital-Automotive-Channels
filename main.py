@@ -36,6 +36,7 @@ def run_ingestion(force_restart: bool = False):
             print(red("Database missing. Starting initial ingestion..."))
             
         try:
+            env = os.environ.copy()
             subprocess.run(["uv", "run", "-m", "src.rag.ingest"], check=True, env=env)
             print(green("Ingestion complete."))
         except subprocess.CalledProcessError as e:
