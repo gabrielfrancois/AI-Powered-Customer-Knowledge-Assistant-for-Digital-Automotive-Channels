@@ -112,8 +112,24 @@ def render_dashboard():
     with col_left:
         st.subheader("📚 Knowledge Coverage")
         if not source_diversity.empty:
-            st.bar_chart(source_diversity.set_index("Source")["Share"])
-            st.caption("Which documents are used most often?")
+            st.dataframe(
+                source_diversity,
+                column_config={
+                    "Source": "Document Name",
+                    "Share": st.column_config.ProgressColumn(
+                        "Usage %",
+                        help="Percentage of total citations coming from this source",
+                        format="%.1f%%", # Displays 15.2%
+                        min_value=0,
+                        max_value=100,
+                    ),
+                    "Usage": "Citation Count"
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+            # st.bar_chart(source_diversity.set_index("Source")["Share"])
+            # st.caption("Which documents are used most often?")
         else:
             st.caption("No sources cited yet.")
 

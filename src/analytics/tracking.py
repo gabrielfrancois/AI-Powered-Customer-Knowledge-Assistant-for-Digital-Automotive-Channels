@@ -22,14 +22,53 @@ class AnalyticsManager:
             return
 
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-
-        if not self.interactions_file.exists():
-            with open(self.interactions_file, "w", newline="", encoding="utf-8") as f:
-                csv.writer(f).writerow(["message_id", "session_id", "timestamp", "user_query", "answer", "sources", "latency", "success_flag", "category","input_tokens", "output_tokens"])
+        
+        # Security check, define what should be on the csv data
+        interaction_schema = [
+            "message_id", "session_id", "timestamp", "user_query", 
+            "answer", "sources", "latency", "success_flag", 
+            "category", "input_tokens", "output_tokens"
+        ]
+        
+        feedback_schema = [
+            "feedback_id", "timestamp", "message_id", 
+            "thumb_up_down", "comment", "related_sources"
+        ]
+        
+        def validate_and_setup(filepath, expected_columns):
+            if not filepath.exists(): # If file doesn't exist -> create it
+                with open(filepath, "w", newline="", encoding="utf-8") as f:
+                    csv.writer(f).writerow(expected_columns)
+                return
+            try: # If file exists -> check if the schema is right
+                df = pd.read_csv(filepath, nrows=0)
+                existing_cols = list(df.columns)
+                
+                if existing_cols != expected_columns:
+                    print(red(f"⚠️  Schema mismatch in {filepath.name}."))
+                    print(f"   Expected: {expected_columns}")
+                    print(f"   Found:    {existing_cols}")
+                    
+                    # Fallback
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_path = filepath.parent / f"{filepath.stem}_backup_{timestamp}.csv"
+                    filepath.rename(backup_path)
+                    print(orange(f"Fallback:  Old file backed up to: {backup_path.name}"))
+                    
+                    # Create Fresh File
+                    with open(filepath, "w", newline="", encoding="utf-8") as f:
+                        csv.writer(f).writerow(expected_columns)
+                    print(green(f"Created fresh {filepath.name} with correct schema."))
+                else:
+                    print(green(f"All the given database matches, continue filling {filepath}"))
             
-        if not self.feedback_file.exists():
-            with open(self.feedback_file, "w", newline="", encoding="utf-8") as f:
-                csv.writer(f).writerow(["feedback_id", "timestamp", "message_id", "thumb_up_down", "comment", "related_sources"])
+            except Exception as e: # If file is corrupted, recreate it
+                print(red(f"Error reading {filepath.name}: {e}. Recreating file."))
+                with open(filepath, "w", newline="", encoding="utf-8") as f:
+                    csv.writer(f).writerow(expected_columns)
+
+        validate_and_setup(self.interactions_file, interaction_schema)
+        validate_and_setup(self.feedback_file, feedback_schema)
     
     def _estimate_tokens(self, text: str) -> int:
         """
@@ -123,7 +162,7 @@ class AnalyticsManager:
 
         df_int = pd.read_csv(self.interactions_file)
         
-        # COST SIMULATION (The Business Metric) (In/1M * Price) + (Out/1M * Price)
+        # Cost simulation (The Business Metric) 
         total_in = df_int["input_tokens"].sum()
         total_out = df_int["output_tokens"].sum()
         est_cost = (

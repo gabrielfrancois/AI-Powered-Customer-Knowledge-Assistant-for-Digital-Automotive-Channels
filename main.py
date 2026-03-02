@@ -20,7 +20,7 @@ def clean_vector_db():
         print(orange(f"🧹 Removing existing vector database at {VECTOR_DB_PATH}..."))
         shutil.rmtree(VECTOR_DB_PATH)
     else:
-        print("ℹ️  No existing database found to delete.")
+        print("No existing database found to delete.")
 
 def run_ingestion(force_restart: bool = False):
     """Runs the ingestion script."""
@@ -36,10 +36,6 @@ def run_ingestion(force_restart: bool = False):
             print(red("Database missing. Starting initial ingestion..."))
             
         try:
-            # FORCE UNBUFFERED OUTPUT (So you see logs instantly)
-            env = os.environ.copy()
-            env["PYTHONUNBUFFERED"] = "1"
-            
             subprocess.run(["uv", "run", "-m", "src.rag.ingest"], check=True, env=env)
             print(green("Ingestion complete."))
         except subprocess.CalledProcessError as e:
@@ -54,23 +50,19 @@ def launch_app():
     print("Press Ctrl+C to stop the server.")
     
     try:
-        # FORCE UNBUFFERED OUTPUT & PREVENT DEADLOCKS
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"           # <--- The fix for "No logs"
-        env["TOKENIZERS_PARALLELISM"] = "false" # <--- The fix for "Freeze"
-        
-        # Simple launch command (No specific ports, no threading, no browser scripts)
+        env = os.environ.copy()          
+        env["TOKENIZERS_PARALLELISM"] = "false"  
         subprocess.run(
             [
                 "uv", "run", "streamlit", "run", str(APP_PATH),
-                "--server.fileWatcherType", "none",  # <--- CRITICAL FIX for Mac Freeze
+                "--server.fileWatcherType", "none",  # for Mac Freeze
                 "--server.headless", "false"         # Ensure it pops open
             ], 
             check=True,
             env=env
         )
     except KeyboardInterrupt:
-        print(orange("\n👋 App stopped by user."))
+        print(green("\n👋 App stopped by user."))
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="BMW AI Assistant Launcher")

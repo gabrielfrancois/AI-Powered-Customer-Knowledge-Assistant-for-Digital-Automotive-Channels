@@ -48,8 +48,6 @@ def rerank_docs(docs, query):
     rerank_request = RerankRequest(query=query, passages=passages)
     results = ranker.rerank(rerank_request)
     
-    # debug_print(f"Reranking complete. Returned {len(results)} docs.")
-    
     final_docs = []
     for res in results[:config.top_k]: # Pick only the best ones (the top_k)
         final_docs.append(Document(page_content=res["text"], metadata=res["meta"]))
@@ -111,7 +109,7 @@ def get_rag_chain(top_k: int = config.top_k):
     chain = (
         RunnableParallel(
             {
-                "docs": RunnablePassthrough() | smart_retrieval, # <--- Capture raw docs here
+                "docs": RunnablePassthrough() | smart_retrieval, # Capture raw docs here
                 "question": RunnablePassthrough()
             }
         )
