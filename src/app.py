@@ -87,7 +87,7 @@ def render_dashboard():
         st.info("No data available yet. Chat with the bot to generate analytics!")
         return
 
-    # KEY METRICS (Added Latency) ---
+    # KEY METRICS 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Queries", metrics["total_queries"])
     c2.metric("Avg Latency", f"{metrics['avg_latency']:.2f}s") 
@@ -96,7 +96,7 @@ def render_dashboard():
 
     st.divider()
 
-    # POPULAR SUBJECTS (User Intents) ---
+    # POPULAR SUBJECTS 
     st.subheader("📌 Most Popular Subjects")
     if not cat_counts.empty:
         st.bar_chart(cat_counts.set_index("Category"))

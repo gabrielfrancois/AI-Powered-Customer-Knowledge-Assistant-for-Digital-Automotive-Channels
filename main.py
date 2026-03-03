@@ -6,7 +6,6 @@ import time
 import argparse
 from pathlib import Path 
 
-# Import your color functions
 from helper_function.prints import orange, red, green, blue
 
 # Define paths

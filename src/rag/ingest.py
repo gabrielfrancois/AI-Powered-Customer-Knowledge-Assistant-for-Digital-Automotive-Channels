@@ -51,12 +51,8 @@ def clean_content(text: str) -> str:
     Optional: Clean text artifacts.
     Replaces double newlines with single, removes excessive tabs.
     """
-    # Example: "BM-\nW" -> "BMW"
-    text = re.sub(r"-\n(?=\w)", "", text)
-
-    # Collapse excessive blank lines (3+ -> 2)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
+    text = re.sub(r"-\n(?=\w)", "", text) # "BM-\nW" -> "BMW"
+    text = re.sub(r"\n{3,}", "\n\n", text) # Collapse excessive blank lines (3+ -> 2)
     return text
 
 def calculate_hnsw_params(n_chunks: int):
