@@ -47,7 +47,7 @@ def run_ingestion(force_restart: bool = False):
 
 def launch_app():
     """Launches Streamlit simply."""
-    print(green("🚀 Launching BMW AI Assistant..."))
+    print(green("Launching BMW AI Assistant..."))
     print("Press Ctrl+C to stop the server.")
     
     try:
@@ -56,14 +56,14 @@ def launch_app():
         subprocess.run(
             [
                 "uv", "run", "streamlit", "run", str(APP_PATH),
-                "--server.fileWatcherType", "none",  # for Mac Freeze
+                "--server.fileWatcherType", "none",  
                 "--server.headless", "false"         # Ensure it pops open
             ], 
             check=True,
             env=env
         )
     except KeyboardInterrupt:
-        print(green("\n👋 App stopped by user."))
+        print(green("\nApp stopped by user."))
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="BMW AI Assistant Launcher")

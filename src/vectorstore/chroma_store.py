@@ -9,9 +9,8 @@ from src.embeddings.bge_m3 import get_embedding_model
 def get_vectorstore(clean: bool = False, collection_metadata: dict = None):
     """
     Returns the ChromaDB vector store instance.
-    
     Args:
-        clean (bool): If True, deletes the existing database and starts fresh.Useful for re-ingesting documents.
+        clean (bool): If True, deletes the existing database and starts fresh. Useful for re-ingesting documents.
         collection_metadata (dict): HNSW configuration (M, ef_construction).
             Only used when creating a NEW collection.
     Return:

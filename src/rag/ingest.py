@@ -106,7 +106,7 @@ def ingest():
     for doc in cleaned_docs:
         doc.page_content = clean_content(doc.page_content)
 
-    # Prepare to split text into a bunch of chunks
+    # Prepare splitter
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=config.CHUNKING_SIZE,
         chunk_overlap=config.CHUNKING_OVERLAP,
