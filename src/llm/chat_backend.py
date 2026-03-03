@@ -8,41 +8,70 @@ from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 
 from src import config
-from helper_function.prints import *
+from helper_function.prints import * 
+
+GLOBAL_MODEL = None
+GLOBAL_TOKENIZER = None
 
 class MLXChatModel(LLM):
     """
     A custom LangChain wrapper for running LLMs locally via MLX.
     """
 
-    model_id: str = config.MODEL_NAME # if ollama, model_id: str = "llama3.2"
+    model_id: str = config.MODEL_NAME 
     model_dir: Path = config.MODEL_DIR
-    model: Any = None
-    tokenizer: Any = None
     gen_config: dict = config.GENERATION_CONFIG
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._load_model()
+        if GLOBAL_MODEL is not None:
+            pass 
 
     def _load_model(self):
         """
-        Downloads (if necessary) and loads the model into memory.
+        Downloads (if necessary) and loads the model into the GLOBAL cache.
         """
-        # Ensure directory exists
+        global GLOBAL_MODEL, GLOBAL_TOKENIZER
+
+        if GLOBAL_MODEL is not None:
+            return
+
         if not self.model_dir.exists():
             print(green(f"Creating model directory at: {self.model_dir}"))
             self.model_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"🔄 Checking for model: {self.model_id}...")
-        model_path = snapshot_download(# Ensure it downloads to our custom path
-            repo_id=self.model_id,
-            local_dir=self.model_dir, 
-        ) 
+        print(f"Checking for model: {self.model_id}...")
+        try:
+            model_path = snapshot_download(
+                repo_id=self.model_id,
+                local_dir=self.model_dir,
+            )
+        except Exception as e:
+            raise RuntimeError(red(f"Failed to download model: {e}") )
 
         print(f"\n ⚡ Loading model into memory from {model_path}...")
-        self.model, self.tokenizer = load(model_path)
-        print(green("Model loaded successfully!"))
+        try:
+            # Load locally first
+            model, tokenizer = load(model_path)
+            
+            print("Warming up inference engine...")
+            # from mlx_lm import generate
+            
+            warmup_prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": "hi"}], 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            # Warmup generation
+            _ = generate(model, tokenizer, prompt=warmup_prompt, max_tokens=2, verbose=False)
+            
+            # SAVE TO GLOBAL CACHE
+            GLOBAL_MODEL = model
+            GLOBAL_TOKENIZER = tokenizer
+            
+            print(green("Model loaded successfully!"))
+        except Exception as e:
+            raise RuntimeError(red(f"Failed to load model: {e}"))
 
     @property
     def _llm_type(self) -> str:
@@ -58,27 +87,30 @@ class MLXChatModel(LLM):
         """
         The core function that runs the generation.
         """
-        
-        print(yellow(f"\n[DEBUG] FINAL PROMPT SENT TO LLM:\n{'-'*20}\n{prompt}\n{'-'*20}\n"))
-        
-        if self.model is None:
+        global GLOBAL_MODEL, GLOBAL_TOKENIZER
+
+        if GLOBAL_MODEL is None:
             self._load_model()
+            
+        print(yellow(f"\n[DEBUG] FINAL PROMPT SENT TO LLM:\n{'-'*20}\n{prompt}\n{'-'*20}\n"))
 
         params = self.gen_config.copy()
         params.update(kwargs)
         
         messages = [{"role": "user", "content": prompt}]
-        formatted_prompt = self.tokenizer.apply_chat_template(
+        
+        # Use GLOBAL_TOKENIZER
+        formatted_prompt = GLOBAL_TOKENIZER.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
 
         sampler = make_sampler(params.get("temp", config.TEMPERATURE))
 
-        # Generate answer
+        # Use GLOBAL_MODEL
         response = generate(
-            self.model,
-            self.tokenizer,
-            prompt=formatted_prompt, # use the formatted prompt
+            GLOBAL_MODEL,
+            GLOBAL_TOKENIZER,
+            prompt=formatted_prompt, 
             max_tokens=params.get("max_tokens", 512),
             sampler=sampler,
             verbose=params.get("verbose", False)

@@ -70,7 +70,7 @@ def render_sidebar():
         if st.button("Clear Chat"):
             st.session_state.messages = []
             st.session_state.feedback_given = set()
-            st.session_state.session_id = str(uuid.uuid4()) 
+            st.session_state.session_id = str(uuid.uuid4())
             st.rerun()
     return top_k
 
@@ -229,6 +229,10 @@ def process_chat(top_k):
 def main():
     setup_page()
     top_k = render_sidebar()
+    
+    if "rag_chain_loaded" not in st.session_state:
+        load_cached_chain(top_k)
+        st.session_state["rag_chain_loaded"] = True
     
     tab1, tab2 = st.tabs(["💬 Chat", "📈 Analytics"])
     

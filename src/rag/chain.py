@@ -7,7 +7,7 @@ from helper_function.prints import *
 def debug_print(msg):
     print(f"[CHAIN DEBUG] {msg}")
 
-def rerank_docs(docs, query):
+def rerank_docs(docs, query, top_k):
     """
     Re-ranks retrieved documents using a cross-encoder (FlashRank).
     1. Retrieval gets 'broad' matches (Top-15).
@@ -28,7 +28,7 @@ def rerank_docs(docs, query):
 
             Returns an empty list if `docs` is empty.
     """
-    from flashrank import Ranker, RerankRequest # To allow Re-Ranking strategy 
+    from flashrank import Ranker, RerankRequest # To allow Re-Ranking strategy
     
     if not docs:
         return []
@@ -36,7 +36,6 @@ def rerank_docs(docs, query):
     # Initialize Ranker (uses a tiny model ~40MB, runs on CPU/MPS fast) TODO: in production maybe take a better model if we've computational capacities 
     ranker = Ranker(model_name="ms-marco-TinyBERT-L-2-v2", cache_dir=config.MODEL_DIR)
     
-    # Convert LangChain Docs to FlashRank format
     passages = [
         {"id": str(i), "text": doc.page_content, "meta": doc.metadata} 
         for i, doc in enumerate(docs)
@@ -46,9 +45,9 @@ def rerank_docs(docs, query):
     results = ranker.rerank(rerank_request)
     
     final_docs = []
-    for res in results[:config.top_k]: # Pick only the best ones (the top_k)
+
+    for res in results[:top_k]: 
         final_docs.append(Document(page_content=res["text"], metadata=res["meta"]))
-        
     return final_docs
 
 def format_docs(docs):
@@ -82,7 +81,7 @@ def get_rag_chain(top_k: int = config.top_k):
     
     def smart_retrieval(query:str):
         initial_docs = base_retriever.invoke(query) # first search (classical HNSW)
-        ranked_docs = rerank_docs(initial_docs, query) # Re-ranking
+        ranked_docs = rerank_docs(initial_docs, query, top_k=top_k) # Re-ranking
         print(orange(f"Initial retrieval found {len(ranked_docs)} docs."))
         return ranked_docs
     

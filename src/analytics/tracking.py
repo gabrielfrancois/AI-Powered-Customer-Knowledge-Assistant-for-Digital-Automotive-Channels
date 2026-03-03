@@ -5,6 +5,7 @@ from collections import Counter
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+import tiktoken
 
 from src import config
 from helper_function.prints import *
@@ -15,6 +16,11 @@ class AnalyticsManager:
         self.interactions_file = config.INTERACTIONS_FILE
         self.feedback_file = config.FEEDBACK_FILE
         self._initialize_storage() # Ensure directory and files exist
+        try:
+            self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:
+            print(red(f"Could not load tiktoken: {e}. Falling back to heuristic."))
+            self.tokenizer = None
 
     def _initialize_storage(self):
         """Creates CSV files with headers if they don't exist."""
@@ -73,9 +79,15 @@ class AnalyticsManager:
     def _estimate_tokens(self, text: str) -> int:
         """
         Estimates tokens based on char count (Speed optimization).
-        Rule of thumb: 1 token ~= 4 chars in English.
+        Rule of thumb: 1 token ~= 4 chars in English. 
         """
         if not text: return 0
+        if self.tokenizer:
+            try:
+                return len(self.tokenizer.encode(text))
+            except Exception:
+                pass 
+        
         return len(text) // 4
 
     def _categorize_intent(self, query: str) -> str:
