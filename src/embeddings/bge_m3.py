@@ -43,18 +43,24 @@ class LocalHuggingFaceEmbeddings(Embeddings):
         Embed a list of documents.
         BGE-M3 works best with normalized embeddings.
         """
-        # normalize_embeddings=True for relevant Dot Product / Cosine Similarity
-        texts = [t.replace("\n", " ") for t in texts]
-        embeddings = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=True, convert_to_tensor=False)
+   
+        safe_texts = []
+        for t in texts:
+            if t is None or not isinstance(t, str) or not t.strip():
+                safe_texts.append(" ") 
+            else:
+                safe_texts.append(t.replace("\n", " "))
+        embeddings = self.model.encode(safe_texts, normalize_embeddings=True, show_progress_bar=True, convert_to_tensor=False)
         return embeddings.tolist()
 
     def embed_query(self, text: str) -> List[float]:
         """
         Embed a single query.
         """
-
+        if text is None or not isinstance(text, str) or not text.strip():
+            text = " " 
         text = text.replace("\n", " ")
-        embedding = self.model.encode(text, normalize_embeddings=True)
+        embedding = self.model.encode(text, convert_to_tensor=False)
         return embedding.tolist()
 
 def get_embedding_model() -> LocalHuggingFaceEmbeddings:
