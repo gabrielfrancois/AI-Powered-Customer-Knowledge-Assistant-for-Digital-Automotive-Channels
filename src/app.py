@@ -99,7 +99,6 @@ def render_dashboard():
     # POPULAR SUBJECTS (User Intents) ---
     st.subheader("📌 Most Popular Subjects")
     if not cat_counts.empty:
-        # Use Category as index for better labels
         st.bar_chart(cat_counts.set_index("Category"))
     else:
         st.caption("No data yet.")

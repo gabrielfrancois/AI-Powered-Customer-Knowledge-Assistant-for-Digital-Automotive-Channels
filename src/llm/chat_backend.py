@@ -37,7 +37,7 @@ class MLXChatModel(LLM):
         print(f"🔄 Checking for model: {self.model_id}...")
         model_path = snapshot_download(# Ensure it downloads to our custom path
             repo_id=self.model_id,
-            local_dir=self.model_dir,
+            local_dir=self.model_dir, 
         ) 
 
         print(f"\n ⚡ Loading model into memory from {model_path}...")

@@ -81,7 +81,7 @@ class AnalyticsManager:
     def _categorize_intent(self, query: str) -> str:
         """
         Simple heuristic clustering/classification of user intent.
-        In production, this would be a BERT classifier.
+        (BERT classifier might be a great IDEA, in case of huge bunch of data).
         """
         q = query.lower()
         if any(w in q for w in ["warranty", "guarantee", "cover", "years"]):
@@ -159,10 +159,8 @@ class AnalyticsManager:
         """
         if not self.interactions_file.exists():
             return None, None, None, None, None
-
         df_int = pd.read_csv(self.interactions_file)
         
-        # Cost simulation (The Business Metric) 
         total_in = df_int["input_tokens"].sum()
         total_out = df_int["output_tokens"].sum()
         est_cost = (
@@ -170,51 +168,41 @@ class AnalyticsManager:
             (total_out / 1_000_000 * config.COST_PER_1M_OUTPUT_TOKENS)
         )
         
-        # Group by Session ID and count messages
         session_depth = df_int.groupby("session_id").size().mean()
         
-        # SOURCE DIVERSITY
         all_cited = []
         for s in df_int["sources"].dropna():
             if isinstance(s, str) and s.strip():
-                all_cited.extend(s.split(" | "))
+                all_cited.extend(s.split(" | ")) # SOURCE DIVERSITY
             
         source_counts = pd.Series(all_cited).value_counts().reset_index()
         source_counts.columns = ["Source", "Usage"]
         
-        # Calculate % of total citations
         total_citations = source_counts["Usage"].sum()
         source_counts["Share"] = (source_counts["Usage"] / total_citations) * 100
         
-        # No Answer Rate
         total = len(df_int)
         if total > 0:
-            failed = len(df_int[df_int["success_flag"] == False]) # Assuming boolean conversion on read
-            if df_int["success_flag"].dtype == object: 
-                failed = len(df_int[df_int["success_flag"].str.lower() == "false"]) # Handle string 'FALSE' if pandas didn't convert automatically
+            failed = len(df_int[df_int["success_flag"].astype(str).str.lower() == "false"]) # success flag for answer rate
             no_answer_rate = (failed / total) * 100
         else:
             no_answer_rate = 0
 
-        # Get performance by category
         cat_counts = df_int["category"].value_counts().reset_index()
         cat_counts.columns = ["Category", "Count"]
 
-        # Problematic sources (from feedback file, thumbs down)
         df_feed = pd.DataFrame()
         if self.feedback_file.exists():
             df_feed = pd.read_csv(self.feedback_file)
             
-        # Count negative feedback (thumbs down = 0)
         bad_sources = []
         if not df_feed.empty:
-            thumbs_down = df_feed[df_feed["thumb_up_down"] == 0]
+            thumbs_down = df_feed[df_feed["thumb_up_down"] == 0] # thumbs down = 0 
             for s in thumbs_down["related_sources"].dropna(): # avoid undefined nan
                 if isinstance(s, str) and s.strip():
                     bad_sources.extend(s.split(" | "))
         bad_counts = pd.Series(bad_sources).value_counts()
-
-        # Count positive feedback 
+ 
         good_sources = []
         if not df_feed.empty:
             thumbs_up = df_feed[df_feed["thumb_up_down"] == 1]
@@ -222,13 +210,11 @@ class AnalyticsManager:
                 good_sources.extend(s.split(" | "))
         good_counts = pd.Series(good_sources).value_counts()
 
-        # Combine into stats
         source_stats = pd.DataFrame({
             "Thumbs Up": good_counts,
             "Thumbs Down": bad_counts
         }).fillna(0) # Fill NaN with 0 if a source has only ups or only downs
         
-        # calculate approval rate
         source_stats["Total Feedback"] = source_stats["Thumbs Up"] + source_stats["Thumbs Down"]
         source_stats["Approval Rate"] = (source_stats["Thumbs Up"] / source_stats["Total Feedback"]) * 100
         
@@ -247,6 +233,4 @@ class AnalyticsManager:
             "est_cost": est_cost,
             "session_depth": session_depth
         }
-        
-
         return metrics, cat_counts, source_counts, problematic_sources
