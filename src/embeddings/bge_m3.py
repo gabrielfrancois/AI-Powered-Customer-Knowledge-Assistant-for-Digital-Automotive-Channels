@@ -6,15 +6,18 @@ import torch
 from src import config 
 from helper_function.prints import *
 
+_STATIC_EMBEDDING_MODEL = None
 
 class LocalHuggingFaceEmbeddings(Embeddings):
     """
     A custom wrapper for SentenceTransformers to be compatible with LangChain.
     We built this to avoid 'langchain-huggingface' dependency conflicts.
     """
-
+    
     def __init__(self):
         print(f"Loading embedding model: {config.EMBEDDING_MODEL_NAME}...")
+        
+        global _STATIC_EMBEDDING_MODEL
 
         if torch.backends.mps.is_available():
             self.device = "mps"
@@ -22,22 +25,27 @@ class LocalHuggingFaceEmbeddings(Embeddings):
             self.device = "cuda"
         else:
             self.device = "cpu" 
-
         print(blue(f"Using device: {self.device}"))
+            
+        if _STATIC_EMBEDDING_MODEL is None:
+            print(orange(f"Loading Embedding Model (BGE-M3) to {self.device}..."))
+            _STATIC_EMBEDDING_MODEL = SentenceTransformer(
+                config.EMBEDDING_MODEL_NAME,
+                device=self.device,
+                cache_folder=str(config.MODEL_DIR)
+            )
+            print(green("Embedding Model loaded!"))
 
-        self.model = SentenceTransformer(
-            config.EMBEDDING_MODEL_NAME,
-            device=self.device,
-            cache_folder=str(config.MODEL_DIR) # Cache in our project folder
-        )
+        self.model = _STATIC_EMBEDDING_MODEL
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """
         Embed a list of documents.
         BGE-M3 works best with normalized embeddings.
         """
-        # normalize_embeddings=True is crucial for Dot Product / Cosine Similarity
-        embeddings = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
+        # normalize_embeddings=True for relevant Dot Product / Cosine Similarity
+        texts = [t.replace("\n", " ") for t in texts]
+        embeddings = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=True, convert_to_tensor=False)
         return embeddings.tolist()
 
     def embed_query(self, text: str) -> List[float]:
@@ -45,6 +53,7 @@ class LocalHuggingFaceEmbeddings(Embeddings):
         Embed a single query.
         """
 
+        text = text.replace("\n", " ")
         embedding = self.model.encode(text, normalize_embeddings=True)
         return embedding.tolist()
 
