@@ -23,7 +23,8 @@ def clean_vector_db():
 
 def run_ingestion(force_restart: bool = False):
     """Runs the ingestion script."""
-    print(blue("You select ingestion process, this might take time to process!"))
+    if force_restart:
+        print(blue("You select ingestion process, this might take time to process!"))
     print(orange("🔍 Checking Knowledge Base status..."))
     
     db_exists = VECTOR_DB_PATH.exists() and os.listdir(VECTOR_DB_PATH)

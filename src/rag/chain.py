@@ -45,7 +45,8 @@ def rerank_docs(docs, query, top_k):
     results = ranker.rerank(rerank_request)
     
     final_docs = []
-
+    
+    print("[RERANKER] Loaded FlashRank model once")
     for res in results[:top_k]: 
         final_docs.append(Document(page_content=res["text"], metadata=res["meta"]))
     return final_docs
@@ -86,22 +87,7 @@ def get_rag_chain(top_k: int = config.top_k):
         return ranked_docs
     
     # System prompt (+user_prompt) with chain of thought
-    template = """You are a BMW Product Expert.
-    
-    TASK: Answer the user's question strictly based on the provided Reference Documents below.
-    
-    REFERENCE DOCUMENTS:
-    {context}
-    
-    RESPONSE GUIDELINES:
-    1. **Concept Matching:** The user may use different terminology than the documents. actively look for synonyms or related concepts (e.g., if asked about "high voltage", check sections on "electric" or "battery").
-    2. **Precision:** If the documents provide specific figures (years, km, kW), cite them exactly.
-    3. **Focus:** Answer only what is asked. Do not include irrelevant details from other sections (like extended warranties) unless requested.
-    4. **Uncertainty:** If the answer is **strictly not found in the documents, say "I don't know"**.
-    
-    USER QUESTION: 
-    {question}
-    """
+    template = config.BASE_PROMPT
     
     prompt = ChatPromptTemplate.from_template(template)
     
