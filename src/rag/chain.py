@@ -86,10 +86,7 @@ def get_rag_chain(top_k: int = config.top_k):
         print(orange(f"Initial retrieval found {len(ranked_docs)} docs."))
         return ranked_docs
     
-    # System prompt (+user_prompt) with chain of thought
-    template = config.BASE_PROMPT
-    
-    prompt = ChatPromptTemplate.from_template(template)
+    prompt = ChatPromptTemplate.from_template(config.BASE_PROMPT)
     
     chain = (
         RunnableParallel(
