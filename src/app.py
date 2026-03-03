@@ -140,7 +140,7 @@ def render_dashboard():
             
             if not issues.empty:
                 st.dataframe(
-                    issues[["Source File", "Thumbs Down", "Approval Rate"]],
+                    issues[["Source File", "Thumbs Down", "Approval Rate"]].sort_values("Approval Rate").head(10),
                     hide_index=True,
                     width='stretch'
                 )
