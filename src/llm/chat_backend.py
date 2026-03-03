@@ -10,8 +10,57 @@ from langchain_core.language_models.llms import LLM
 from src import config
 from helper_function.prints import * 
 
-GLOBAL_MODEL = None
-GLOBAL_TOKENIZER = None
+class ModelRegistry:
+    _model = None
+    _tokenizer = None
+
+    @classmethod
+    def get_model(cls):
+        """Returns (model, tokenizer). Loads them if they aren't ready."""
+        if cls._model is not None:
+            return cls._model, cls._tokenizer
+        
+        cls._load()
+        return cls._model, cls._tokenizer
+
+    @classmethod
+    def _load(cls):
+        """Internal loading logic"""
+        model_id = config.MODEL_NAME
+        model_dir = config.MODEL_DIR
+
+        if not model_dir.exists():
+            print(green(f"Creating model directory at: {model_dir}"))
+            model_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"🔄 Checking for model: {model_id}...")
+        try:
+            model_path = snapshot_download(
+                repo_id=model_id,
+                local_dir=model_dir,
+            )
+        except Exception as e:
+            raise RuntimeError(red(f"Failed to download model: {e}"))
+
+        print(f"\n⚡ Loading model into memory from {model_path}...")
+        try:
+            model, tokenizer = load(model_path)
+            
+            print("Warming up inference engine...")
+            warmup_prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": "hi"}], 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            _ = generate(model, tokenizer, prompt=warmup_prompt, max_tokens=1, verbose=False)
+            
+            cls._model = model
+            cls._tokenizer = tokenizer
+            
+            print(green("Model loaded and warmed up!"))
+            
+        except Exception as e:
+            raise RuntimeError(red(f"Failed to load model: {e}"))
 
 class MLXChatModel(LLM):
     """
@@ -19,59 +68,11 @@ class MLXChatModel(LLM):
     """
 
     model_id: str = config.MODEL_NAME 
-    model_dir: Path = config.MODEL_DIR
     gen_config: dict = config.GENERATION_CONFIG
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if GLOBAL_MODEL is not None:
-            pass 
-
-    def _load_model(self):
-        """
-        Downloads (if necessary) and loads the model into the GLOBAL cache.
-        """
-        global GLOBAL_MODEL, GLOBAL_TOKENIZER
-
-        if GLOBAL_MODEL is not None:
-            return
-
-        if not self.model_dir.exists():
-            print(green(f"Creating model directory at: {self.model_dir}"))
-            self.model_dir.mkdir(parents=True, exist_ok=True)
-
-        print(f"Checking for model: {self.model_id}...")
-        try:
-            model_path = snapshot_download(
-                repo_id=self.model_id,
-                local_dir=self.model_dir,
-            )
-        except Exception as e:
-            raise RuntimeError(red(f"Failed to download model: {e}") )
-
-        print(f"\n ⚡ Loading model into memory from {model_path}...")
-        try:
-            # Load locally first
-            model, tokenizer = load(model_path)
-            
-            print("Warming up inference engine...")
-            # from mlx_lm import generate
-            
-            warmup_prompt = tokenizer.apply_chat_template(
-                [{"role": "user", "content": "hi"}], 
-                tokenize=False, 
-                add_generation_prompt=True
-            )
-            # Warmup generation
-            _ = generate(model, tokenizer, prompt=warmup_prompt, max_tokens=2, verbose=False)
-            
-            # SAVE TO GLOBAL CACHE
-            GLOBAL_MODEL = model
-            GLOBAL_TOKENIZER = tokenizer
-            
-            print(green("Model loaded successfully!"))
-        except Exception as e:
-            raise RuntimeError(red(f"Failed to load model: {e}"))
+        ModelRegistry.get_model()
 
     @property
     def _llm_type(self) -> str:
@@ -87,29 +88,23 @@ class MLXChatModel(LLM):
         """
         The core function that runs the generation.
         """
-        global GLOBAL_MODEL, GLOBAL_TOKENIZER
-
-        if GLOBAL_MODEL is None:
-            self._load_model()
-            
-        print(yellow(f"\n[DEBUG] FINAL PROMPT SENT TO LLM:\n{'-'*20}\n{prompt}\n{'-'*20}\n"))
+        model, tokenizer = ModelRegistry.get_model()
 
         params = self.gen_config.copy()
         params.update(kwargs)
         
         messages = [{"role": "user", "content": prompt}]
         
-        # Use GLOBAL_TOKENIZER
-        formatted_prompt = GLOBAL_TOKENIZER.apply_chat_template(
+        formatted_prompt = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
 
         sampler = make_sampler(params.get("temp", config.TEMPERATURE))
 
-        # Use GLOBAL_MODEL
+        print(orange("Generate answer..."))
         response = generate(
-            GLOBAL_MODEL,
-            GLOBAL_TOKENIZER,
+            model,
+            tokenizer,
             prompt=formatted_prompt, 
             max_tokens=params.get("max_tokens", 512),
             sampler=sampler,
@@ -121,7 +116,6 @@ class MLXChatModel(LLM):
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
         return {"model_id": self.model_id}
-
 
 """
 dummy class (uncomment to get a Linux/windows compatible model)

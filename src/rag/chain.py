@@ -37,7 +37,7 @@ def rerank_docs(docs, query, top_k):
     ranker = Ranker(model_name="ms-marco-TinyBERT-L-2-v2", cache_dir=config.MODEL_DIR)
     
     passages = [
-        {"id": str(i), "text": doc.page_content, "meta": doc.metadata} 
+        {"id": str(i), "text": doc.page_content, "meta": doc.metadata}
         for i, doc in enumerate(docs)
     ]
     

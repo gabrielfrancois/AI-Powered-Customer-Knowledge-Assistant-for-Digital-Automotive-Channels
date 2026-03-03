@@ -10,7 +10,7 @@ from src.vectorstore.chroma_store import get_vectorstore
 from src import config
 from helper_function.prints import *
 
-BATCH_SIZE = config.BATCH_SIZE  # Number of chunks to process at once, useless here, but becomes usefull in case of greater dataset.
+BATCH_SIZE = config.BATCH_SIZE  # Number of chunks to process at once, useless here, but becomes usefull in case of greater dataset. 
 
 def load_documents():
     """
@@ -101,6 +101,8 @@ def ingest():
     if not raw_docs:
         print(red("No documents found. Exiting."))
         return
+    
+
     cleaned_docs = clean_metadata(raw_docs)
 
     for doc in cleaned_docs:
@@ -112,7 +114,7 @@ def ingest():
         chunk_overlap=config.CHUNKING_OVERLAP,
         separators=["\n\n", "\n", " ", ""]
     )
-    
+
     # Turns raw text into chunks 
     chunks = text_splitter.split_documents(cleaned_docs)
     total_chunks = len(chunks)
@@ -123,7 +125,7 @@ def ingest():
     # Launch HNSW
     vectorstore = get_vectorstore(clean=True, collection_metadata=hnsw_config)
 
-    print("⚡ Indexing in batches of {BATCH_SIZE}...")
+    print(f"⚡ Indexing in batches of {BATCH_SIZE}...")
 
     total_batches = math.ceil(total_chunks / BATCH_SIZE)
 

@@ -189,17 +189,17 @@ def process_chat(top_k):
             placeholder = st.empty()
             
             try:
-                # 1. Load Chain (Cached)
-                chain = load_cached_chain(top_k) 
+                # Load Chain (Cached)
+                chain = load_cached_chain(top_k)
                 
                 start = time.time()
                 placeholder.markdown("🧠 *Thinking...*")
                 
-                # 2. Run Inference
+                # Run Inference
                 res = chain.invoke(prompt)
                 latency = time.time() - start
                 
-                # 3. Process
+                # Process
                 answer = res["answer"]
                 context_text = "\n".join([d.page_content for d in res["docs"]])
                 sources = list(set([d.metadata.get("source", "Unk").split("/")[-1] for d in res["docs"]]))

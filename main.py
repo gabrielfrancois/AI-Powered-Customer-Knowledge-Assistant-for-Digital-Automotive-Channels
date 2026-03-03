@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path 
 
 # Import your color functions
-from helper_function.prints import orange, red, green
+from helper_function.prints import orange, red, green, blue
 
 # Define paths
 ROOT_DIR = Path(__file__).parent
@@ -24,6 +24,7 @@ def clean_vector_db():
 
 def run_ingestion(force_restart: bool = False):
     """Runs the ingestion script."""
+    print(blue("You select ingestion process, this might take time to process!"))
     print(orange("🔍 Checking Knowledge Base status..."))
     
     db_exists = VECTOR_DB_PATH.exists() and os.listdir(VECTOR_DB_PATH)
@@ -37,7 +38,11 @@ def run_ingestion(force_restart: bool = False):
             
         try:
             env = os.environ.copy()
-            subprocess.run(["uv", "run", "-m", "src.rag.ingest"], check=True, env=env)
+            subprocess.run(
+                [sys.executable, "-m", "src.rag.ingest"], 
+                check=True, 
+                env=env
+            )
             print(green("Ingestion complete."))
         except subprocess.CalledProcessError as e:
             print(red(f"Ingestion failed: {e}"))
